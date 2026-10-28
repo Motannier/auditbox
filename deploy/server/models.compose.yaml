@@ -1,0 +1,93 @@
+name: auditbox
+
+x-model: &model
+  image: ${AUDITBOX_LLAMA_IMAGE:?Set a verified llama.cpp CUDA image digest in .env}
+  # systemd bootstraps the two containers in order. Docker only recovers a
+  # crashed model, rather than starting both before the gateway at host boot.
+  restart: on-failure
+  cpus: 2
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp:size=256m]
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+  volumes:
+    - /opt/auditbox-server/models:/models:ro
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            device_ids: ["0"]
+            capabilities: [gpu]
+
+services:
+  assistant:
+    <<: *model
+    container_name: auditbox-assistant
+    mem_limit: 4g
+    memswap_limit: 4g
+    ports: ["127.0.0.1:18081:8080"]
+    command:
+      - --model
+      - /models/MiniCPM5-2B-Q4_K_M.gguf
+      - --alias
+      - minicpm5-2b
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - "32768"
+      - --parallel
+      - "1"
+      - --threads
+      - "2"
+      - --threads-batch
+      - "2"
+      - --n-gpu-layers
+      - "999"
+      - --jinja
+      - --reasoning
+      - "off"
+      - --temp
+      - "1.0"
+      - --top-p
+      - "0.95"
+      - --min-p
+      - "0.0"
+      - --repeat-penalty
+      - "1.05"
+      - --predict
+      - "512"
+
+  linux-audit:
+    <<: *model
+    container_name: auditbox-linux-audit
+    mem_limit: 2g
+    memswap_limit: 2g
+    ports: ["127.0.0.1:18082:8080"]
+    command:
+      - --model
+      - /models/command-guard-q8_0.gguf
+      - --alias
+      - command-guard
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - "10240"
+      - --parallel
+      - "1"
+      - --threads
+      - "2"
+      - --threads-batch
+      - "2"
+      - --n-gpu-layers
+      - "999"
+      - --jinja
+      - --reasoning
+      - "off"

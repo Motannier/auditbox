@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "policy_version": "2026-09-15.switch-confirm.1",
+  "profiles": {
+    "h3c_comware": {
+      "profile": "h3c_comware",
+      "brand": "华三",
+      "variants": 18028,
+      "risk": 14625,
+      "safe": 3403,
+      "pending": 180,
+      "source_pending": 180,
+      "source_sha256": "b79865f5aaeebf98d5f4e254f27bb385d4d269f52658af437d7cf8c9111167cc",
+      "bytes": 692588,
+      "sha256": "4b0e2a59a018013267c2353377ff4f46cdbf572d3d15e2bb484d18da841299f6"
+    },
+    "huawei_vrp": {
+      "profile": "huawei_vrp",
+      "brand": "华为",
+      "variants": 31736,
+      "risk": 25716,
+      "safe": 6020,
+      "pending": 339,
+      "source_pending": 339,
+      "source_sha256": "1ea8dd234a5e9eed3f187005b10bbb9c88da711f0cb65dacddc6593556597848",
+      "bytes": 1202117,
+      "sha256": "117ff4dac6c295708554ed8a52ebe42d56575c0a3de8dc2b9fd5b51101ca83c7"
+    },
+    "cisco_ios": {
+      "profile": "cisco_ios",
+      "brand": "思科",
+      "variants": 2286,
+      "risk": 1562,
+      "safe": 724,
+      "pending": 288,
+      "source_pending": 288,
+      "source_sha256": "59b0f38897ea5869b5acd85b7b5bcf55ce0070c3ac9d36535d2d6872d916c9e9",
+      "bytes": 80004,
+      "sha256": "b67c8d9d5eab26edb1f85a2f786681a8d2b845c06e8bc856174cccc0ae6330b0"
+    },
+    "zte_zxr10": {
+      "profile": "zte_zxr10",
+      "brand": "中兴",
+      "variants": 12673,
+      "risk": 10211,
+      "safe": 2462,
+      "pending": 452,
+      "source_pending": 451,
+      "source_sha256": "1330dfa57b866a8cc713f2a10e247145f4157a796e0d1f5325500a6b598bcefa",
+      "bytes": 539316,
+      "sha256": "52523bfe461ba58cd58db4bba37f208a03b5407b8bdfc2de3eb83cacd830bca7"
+    }
+  }
+}

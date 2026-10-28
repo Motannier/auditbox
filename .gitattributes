@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+# Preserve upstream license files without changing their line endings.
+models/model-cards/*/BASE_MODEL_LICENSE -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.gz binary
+*.zip binary

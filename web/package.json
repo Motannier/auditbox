@@ -1,0 +1,42 @@
+{
+  "name": "auditbox-webui",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build && node tests/production-build-check.mjs && node tests/browser-compat-check.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node tests/clock-history-unit-check.mjs && node tests/assistant-history-refresh-check.mjs && node tests/assistant-approval-check.mjs && node tests/xterm-ui-check.mjs && node tests/terminal-clipboard-check.mjs && node tests/assistant-connection-check.mjs && node tests/assistant-layout-check.mjs && node tests/switch-guide-check.mjs && node tests/package-guide-check.mjs && node tests/branding-check.mjs && node tests/operation-review-check.mjs",
+    "test:terminal-clipboard": "node tests/terminal-clipboard-check.mjs",
+    "test:browser-compat": "node tests/browser-compat-check.mjs && node tests/browser-compat-dom-check.mjs",
+    "test:assistant-approval": "node tests/assistant-approval-check.mjs",
+    "test:assistant-history": "node tests/clock-history-unit-check.mjs && node tests/assistant-history-refresh-check.mjs",
+    "test:assistant-connection": "node tests/assistant-connection-check.mjs",
+    "test:operation-review": "node tests/operation-review-check.mjs",
+    "test:branding": "node tests/branding-check.mjs",
+    "test:switch-guide": "node tests/switch-guide-check.mjs",
+    "test:package-guide": "node tests/package-guide-check.mjs",
+    "test:assistant-layout": "node tests/assistant-layout-check.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "core-js": "^3.51.0",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.1",
+    "remark-gfm": "^4.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0"
+  },
+  "devDependencies": {
+    "flex-gap-polyfill": "^5.0.0",
+    "playwright-core": "^1.61.1",
+    "postcss": "^8.5.31"
+  }
+}

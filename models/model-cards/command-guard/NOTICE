@@ -1,0 +1,18 @@
+AuditBox Command Guard 0.8B
+
+This distribution contains a task-specific fine-tuned and Q8_0-quantized
+derivative of Qwen/Qwen3.5-0.8B for the AuditBox project. The modified
+weight artifact and model card are licensed under GNU GPL version 3 only
+(GPL-3.0-only); see LICENSE.
+
+Base model: Qwen/Qwen3.5-0.8B
+Upstream source: https://huggingface.co/Qwen/Qwen3.5-0.8B
+Upstream copyright: Copyright 2026 Alibaba Cloud
+Base model license: Apache License, Version 2.0; see BASE_MODEL_LICENSE.
+The upstream copyright and license notice are retained.
+
+Weight artifact: command-guard-q8_0.gguf
+SHA-256: 7497a4aece77fd790fb1b035260daf926d39196fdfac46b4771dcfe955d6954d
+
+The exact base-model training revision, training-run provenance and
+conversion-tool revision have not been fully archived.

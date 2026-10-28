@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "profiles": {
+    "huawei_vrp": {
+      "brand": "华为",
+      "profile": "huawei_vrp",
+      "policy": "修改交换机配置、文件或运行状态均有风险；纯查询、帮助、视图导航和仅当前终端显示无风险。不区分端口用途。",
+      "command_names": 11324,
+      "variants": 31736,
+      "risk": 25716,
+      "safe": 6020,
+      "source_sha256": "1ea8dd234a5e9eed3f187005b10bbb9c88da711f0cb65dacddc6593556597848",
+      "bytes": 3145949,
+      "sha256": "5c75671efee69d6edfe11a3f85b760f251c33ae61669d0ae415ff0661cd1a596"
+    },
+    "cisco_ios": {
+      "brand": "思科",
+      "profile": "cisco_ios",
+      "policy": "修改交换机配置、文件或运行状态均有风险；纯查询、帮助、视图导航和仅当前终端显示无风险。不区分端口用途。",
+      "command_names": 1840,
+      "variants": 2286,
+      "risk": 1562,
+      "safe": 724,
+      "source_sha256": "59b0f38897ea5869b5acd85b7b5bcf55ce0070c3ac9d36535d2d6872d916c9e9",
+      "bytes": 132689,
+      "sha256": "2a2a358d06a48c1326394659d386143c9fa2426853b102b872ec3a89b0d6a0a0"
+    },
+    "zte_zxr10": {
+      "brand": "中兴",
+      "profile": "zte_zxr10",
+      "policy": "修改交换机配置、文件或运行状态均有风险；纯查询、帮助、视图导航和仅当前终端显示无风险。不区分端口用途。",
+      "command_names": 6619,
+      "variants": 12673,
+      "risk": 10211,
+      "safe": 2462,
+      "source_sha256": "1330dfa57b866a8cc713f2a10e247145f4157a796e0d1f5325500a6b598bcefa",
+      "bytes": 969131,
+      "sha256": "1228c4f9c48b40577c88aa4dbcdf8ac397d1264b68405d85f89be963589d3cd1"
+    }
+  }
+}

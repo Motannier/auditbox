@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="700" viewBox="0 0 560 700" role="img" aria-labelledby="title description">
+  <title id="title">AuditBox Server 架构</title>
+  <desc id="description">浏览器通过 Gateway 访问 Agent 和 Proxy。Agent 直接调用问答模型，终端工具经 Gateway 复用 Proxy 连接。Proxy 的旁路审查通过 Inference 调用 Linux 审查模型。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#7c8fa8"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .title { font-size: 20px; font-weight: 650; fill: #172b46; text-anchor: middle; }
+      .subtitle { font-size: 14px; fill: #4b6078; text-anchor: middle; }
+      .label { font-size: 13px; fill: #60758d; text-anchor: middle; }
+      .line { fill: none; stroke: #7c8fa8; stroke-width: 1.6; stroke-linejoin: round; }
+      .card { stroke-width: 1.2; }
+    </style>
+  </defs>
+
+  <rect width="560" height="700" rx="20" fill="#ffffff"/>
+  <rect x="16" y="110" width="528" height="574" rx="18" fill="#f8fafc" stroke="#dce5ef"/>
+  <text x="36" y="137" font-size="13" font-weight="600" fill="#64758b">AuditBox Server</text>
+
+  <g class="line">
+    <path d="M 280 82 V 158" marker-end="url(#arrow)"/>
+    <path d="M 224 226 V 264 H 144 V 300" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M 336 226 V 264 H 416 V 300" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M 144 368 V 588" marker-end="url(#arrow)"/>
+    <path d="M 416 368 V 444" marker-end="url(#arrow)"/>
+    <path d="M 416 512 V 588" marker-end="url(#arrow)"/>
+  </g>
+
+  <text class="label" x="326" y="121">统一入口</text>
+  <text class="label" x="173" y="252">对话 · 终端</text>
+  <text class="label" x="380" y="252">终端会话</text>
+  <text class="label" x="188" y="483">直接调用</text>
+  <text class="label" x="460" y="411">旁路审查</text>
+  <text class="label" x="460" y="555">模型调用</text>
+
+  <g>
+    <rect class="card" x="178" y="26" width="204" height="56" rx="12" fill="#ffffff" stroke="#cbd6e2"/>
+    <text class="title" x="280" y="51" font-size="18">浏览器工作台</text>
+    <text class="subtitle" x="280" y="71">终端 · 助手 · 审计</text>
+  </g>
+
+  <g>
+    <rect class="card" x="168" y="158" width="224" height="68" rx="12" fill="#edf4ff" stroke="#a7c5ed"/>
+    <text class="title" x="280" y="186">Gateway</text>
+    <text class="subtitle" x="280" y="209">认证 · 接口 · 会话</text>
+  </g>
+
+  <g>
+    <rect class="card" x="40" y="300" width="208" height="68" rx="12" fill="#f3f0ff" stroke="#c7b8eb"/>
+    <text class="title" x="144" y="328">Agent</text>
+    <text class="subtitle" x="144" y="351">问答 · 上下文 · 审批</text>
+  </g>
+
+  <g>
+    <rect class="card" x="312" y="300" width="208" height="68" rx="12" fill="#edf8f5" stroke="#9bcdbf"/>
+    <text class="title" x="416" y="328">Proxy</text>
+    <text class="subtitle" x="416" y="351">设备连接 · 命令控制</text>
+  </g>
+
+  <g>
+    <rect class="card" x="40" y="588" width="208" height="68" rx="12" fill="#fff8eb" stroke="#e4c58f"/>
+    <text class="title" x="144" y="616" style="font-size:18px">MiniCPM5 2B</text>
+    <text class="subtitle" x="144" y="639">问答模型</text>
+  </g>
+
+  <g>
+    <rect class="card" x="312" y="444" width="208" height="68" rx="12" fill="#edf8f5" stroke="#9bcdbf"/>
+    <text class="title" x="416" y="472">Inference</text>
+    <text class="subtitle" x="416" y="495">路由与请求调度</text>
+  </g>
+
+  <g>
+    <rect class="card" x="312" y="588" width="208" height="68" rx="12" fill="#fff8eb" stroke="#e4c58f"/>
+    <text class="title" x="416" y="616" style="font-size:17px">command-guard</text>
+    <text class="subtitle" x="416" y="639">Linux 审查模型</text>
+  </g>
+</svg>
