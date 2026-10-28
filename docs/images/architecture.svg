@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="560" height="700" viewBox="0 0 560 700" role="img" aria-labelledby="title description">
-  <title id="title">AuditBox Server 架构</title>
+  <title id="title">AuditBox 架构</title>
   <desc id="description">浏览器通过 Gateway 访问 Agent 和 Proxy。Agent 直接调用问答模型，终端工具经 Gateway 复用 Proxy 连接。Proxy 的旁路审查通过 Inference 调用 Linux 审查模型。</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -17,7 +17,7 @@
 
   <rect width="560" height="700" rx="20" fill="#ffffff"/>
   <rect x="16" y="110" width="528" height="574" rx="18" fill="#f8fafc" stroke="#dce5ef"/>
-  <text x="36" y="137" font-size="13" font-weight="600" fill="#64758b">AuditBox Server</text>
+  <text x="36" y="137" font-size="13" font-weight="600" fill="#64758b">AuditBox</text>
 
   <g class="line">
     <path d="M 280 82 V 158" marker-end="url(#arrow)"/>
