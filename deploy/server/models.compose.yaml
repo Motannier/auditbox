@@ -32,9 +32,9 @@ services:
     ports: ["127.0.0.1:18081:8080"]
     command:
       - --model
-      - /models/MiniCPM5-2B-Q4_K_M.gguf
+      - /models/Qwen3.5-2B-Q4_K_M.gguf
       - --alias
-      - minicpm5-2b
+      - qwen3.5-2b
       - --host
       - 0.0.0.0
       - --port

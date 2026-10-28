@@ -5,7 +5,7 @@
 
 | 用途 | 文件 | 服务别名 | 来源 |
 | --- | --- | --- | --- |
-| 标准 / 增强问答 | `MiniCPM5-2B-Q4_K_M.gguf` | `minicpm5-2b` | 官方 Hugging Face 仓库，固定 revision |
+| 标准 / 增强问答 | `Qwen3.5-2B-Q4_K_M.gguf` | `qwen3.5-2b` | Unsloth Hugging Face 仓库，固定 revision |
 | Linux 命令审查 | `command-guard-q8_0.gguf` | `command-guard` | 自有 0.8B 微调制品，GPL-3.0-only，[模型卡](model-cards/command-guard/README.md) |
 | H3C Comware 命令审查（可选） | `h3c-risk-q8_0.gguf` | `h3c-risk` | 自有 0.8B 微调制品，GPL-3.0-only，[模型卡](model-cards/h3c-risk/README.md) |
 
@@ -13,7 +13,7 @@
 各条目包含来源、固定 revision、文件大小、SHA-256 和许可。
 下载时使用固定 revision，导入前核对大小和哈希。
 
-MiniCPM5 使用上游官方制品，可从 [固定版本的文件地址](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/blob/2079a22f3beaa4e306449978533478fe0522f4b3/MiniCPM5-2B-Q4_K_M.gguf) 获取。
+通用问答使用 [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) 的 Unsloth GGUF Q4_K_M 量化制品，可从 [固定版本的文件地址](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf) 获取，沿用上游 Apache 2.0 许可。
 两个 0.8B 模型均为 Qwen3.5-0.8B 领域微调的 GGUF Q8_0 制品，模型卡提供各自用途、
 文件信息、运行示例和使用边界。模型卡与 GPL 许可、上游 Apache 许可及归属说明保存在
 `model-cards/`。Hugging Face 固定版本下载地址：
@@ -26,7 +26,7 @@ MiniCPM5 使用上游官方制品，可从 [固定版本的文件地址](https:/
 
 ## 本地校验与导入
 
-将默认部署所需的 MiniCPM5 和 command-guard 文件放入同一目录，再从仓库根目录运行以下命令，替换为实际模型路径：
+将默认部署所需的 Qwen3.5 2B 和 command-guard 文件放入同一目录，再从仓库根目录运行以下命令，替换为实际模型路径：
 
 ```bash
 python3 tools/check_models.py /path/to/models

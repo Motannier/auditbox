@@ -20,7 +20,7 @@ def test_default_settings_use_local_server_services():
     assert settings.host == "127.0.0.1"
     assert settings.port == 18765
     assert settings.gateway_internal_url == "http://127.0.0.1:18080"
-    assert settings.standard_model == "minicpm5-2b"
+    assert settings.standard_model == "qwen3.5-2b"
     assert settings.model_backend == settings.resolved_model_backend == "openai"
     assert settings.model_base_url_for_mode("standard") == "http://127.0.0.1:18081/v1"
     assert settings.model_base_url_for_mode("enhanced") == "http://127.0.0.1:18081/v1"

@@ -13,7 +13,7 @@ AuditBox Agent 负责本地模型问答、工具审批和会话上下文管理�
 [API 路由](src/auditbox_agent/api.py)、[模型与工具运行](src/auditbox_agent/runtime.py)
 和 [上下文管理](src/auditbox_agent/context_manager.py)。
 
-标准与增强模式共用服务器 CUDA llama.cpp 上的 `MiniCPM5-2B Q4`
+标准与增强模式共用服务器 CUDA llama.cpp 上的 `Qwen3.5-2B Q4_K_M`
 （`127.0.0.1:18081`，32K 上下文），使用相同的问答提示和上下文规则。
 两种模式通过请求参数 `chat_template_kwargs.enable_thinking` 区分：标准为 `false`，增强为 `true`。
 增强模式通常耗时更长，思考内容不显示在聊天正文中。兼容旧请求时，`fast` 自动映射为 `enhanced`，

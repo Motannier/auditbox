@@ -17,11 +17,11 @@ def test_assistant_is_shared_while_review_is_isolated_by_device_profile(monkeypa
     linux = resolve_inference_route("linux")
     h3c = resolve_inference_route("h3c_comware")
 
-    assert linux.model_for("assistant") == "minicpm5-2b"
+    assert linux.model_for("assistant") == "qwen3.5-2b"
     assert linux.model_for("review") == "command-guard"
     assert linux.backend_url("assistant") == "http://127.0.0.1:18081"
     assert linux.backend_url("review") == "http://127.0.0.1:18082"
-    assert h3c.model_for("assistant") == "minicpm5-2b"
+    assert h3c.model_for("assistant") == "qwen3.5-2b"
     assert h3c.model_for("review") == "h3c-risk"
     assert h3c.backend_url("assistant") == "http://127.0.0.1:18081"
     assert h3c.backend_url("review") == "http://127.0.0.1:8083"
@@ -30,7 +30,7 @@ def test_assistant_is_shared_while_review_is_isolated_by_device_profile(monkeypa
         "assistant",
         "/v1/chat/completions",
         "http://127.0.0.1:18081",
-        "minicpm5-2b",
+        "qwen3.5-2b",
     )
     assert _route("/review/v1/chat/completions", "h3c_comware") == (
         "review",
