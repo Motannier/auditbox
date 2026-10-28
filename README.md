@@ -133,8 +133,8 @@ QuickStart 覆盖第一种方式。完整默认 AI 部署使用问答与 Linux �
 需要 **Bash、uv、Python 3.11，以及 Node.js 20.19+ 或 22.12+**。在终端执行：
 
 ```bash
-git clone https://github.com/Motannier/auditbox-opensource.git
-cd auditbox-opensource
+git clone https://github.com/Motannier/auditbox.git
+cd auditbox
 ./scripts/quickstart.sh
 ```
 
@@ -373,7 +373,7 @@ AI 与前端开发按需启动以下服务，并从 `agent/.env.example`、`web/
 ## 代码结构
 
 ```text
-auditbox-opensource/
+auditbox/
 ├── box/                 # Gateway、协议代理、命令规则、推荐与审计
 ├── agent/               # 模型对话、上下文、审批与扩展能力
 ├── web/                 # React / xterm 工作台
