@@ -70,6 +70,12 @@ curl http://127.0.0.1:18082/health
 安装器在新 release 中安装 Python 环境并切换 `current`，保留已有账号和状态。安装失败时，
 先检查 `current` 的指向，再决定恢复旧版本或继续修复。保留原 release 目录，勿覆盖写入。
 
+升级会保留已有的 `auditbox.env` 和 `models-runtime/` 配置。更换问答模型时，需要准备新的
+GGUF 文件，更新 `/opt/auditbox-server/models-runtime/models.compose.yaml` 中问答服务的
+`--model` 与 `--alias`，并同步 `/etc/auditbox-server/auditbox.env` 中的
+`AUDITBOX_ASSISTANT_LLM_MODEL` 和 `AUDITBOX_AGENT_STANDARD_MODEL`，使其与服务别名一致。
+本版本默认使用 `Qwen3.5-2B-Q4_K_M.gguf`，服务别名为 `qwen3.5-2b`。
+
 ```bash
 systemctl stop auditbox-server-{gateway,proxy,inference,agent}
 # 完成备份后，按新安装步骤在新的 release 目录运行 install.py。

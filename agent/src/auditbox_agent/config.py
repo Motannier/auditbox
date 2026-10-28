@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     terminal_tool_timeout_seconds: float = 20.0
 
     database_url: str = "sqlite:///data/agent.sqlite3"
-    standard_model: str = "minicpm5-2b"
+    standard_model: str = "qwen3.5-2b"
     # Legacy settings are accepted for upgrades, but no longer route chat traffic.
     fast_model: str = "qwen3.5:0.8b"
     model_base_url: str | None = "http://127.0.0.1:18081/v1"

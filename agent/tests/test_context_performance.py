@@ -28,7 +28,7 @@ from auditbox_agent.runtime import AgentRuntime
 def test_context_window_defaults_are_bounded() -> None:
     settings = Settings()
 
-    assert Settings.model_fields["standard_model"].default == "minicpm5-2b"
+    assert Settings.model_fields["standard_model"].default == "qwen3.5-2b"
     assert settings.max_tool_calls_from_history == 0
     assert settings.compress_tool_results is False
     assert settings.model_context_window_tokens == 32_768

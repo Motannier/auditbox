@@ -18,7 +18,7 @@ flowchart LR
             Inference["Inference<br/>模型路由与推理调度"]
         end
         subgraph Models["Docker Compose / NVIDIA GPU"]
-            Assistant["MiniCPM5 2B<br/>问答模型"]
+            Assistant["Qwen3.5 2B<br/>问答模型"]
             Review["command-guard<br/>Linux 审查模型"]
         end
         DB[("业务与审计 SQLite")]
@@ -51,7 +51,7 @@ Proxy 的 19001 辅助事件监听器与 19000 代理运行在同一进程中。
 | `auditbox-server-proxy` | `127.0.0.1:19000`，辅助事件 `19001` | 连接目标、输入恢复、命令闸门和审计 |
 | `auditbox-server-inference` | `127.0.0.1:18091` | 设备模型路由和经此服务的推理请求调度 |
 | `auditbox-server-agent` | `127.0.0.1:18765` | Agno 问答、上下文、审批与能力管理 |
-| `auditbox-assistant` 容器 | 宿主机 `127.0.0.1:18081` → 容器 8080 | MiniCPM5 2B、32K 上下文 |
+| `auditbox-assistant` 容器 | 宿主机 `127.0.0.1:18081` → 容器 8080 | Qwen3.5 2B、32K 上下文 |
 | `auditbox-linux-audit` 容器 | 宿主机 `127.0.0.1:18082` → 容器 8080 | command-guard、10240 上下文 |
 | `auditbox-server-models` | 无监听端口 | oneshot，依次启动两个模型并等待健康 |
 

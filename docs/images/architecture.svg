@@ -61,7 +61,7 @@
 
   <g>
     <rect class="card" x="40" y="588" width="208" height="68" rx="12" fill="#fff8eb" stroke="#e4c58f"/>
-    <text class="title" x="144" y="616" style="font-size:18px">MiniCPM5 2B</text>
+    <text class="title" x="144" y="616" style="font-size:18px">Qwen3.5 2B</text>
     <text class="subtitle" x="144" y="639">问答模型</text>
   </g>
 

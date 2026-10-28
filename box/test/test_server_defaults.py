@@ -31,7 +31,7 @@ DEFAULTS = {
     "AUDITBOX_REVIEW_BACKEND_URL": "http://127.0.0.1:18082",
     "AUDITBOX_LLM_URL": "http://127.0.0.1:18091/assistant",
     "AUDITBOX_HISTORY_REVIEW_LLM_URL": "http://127.0.0.1:18091/review",
-    "AUDITBOX_ASSISTANT_LLM_MODEL": "minicpm5-2b",
+    "AUDITBOX_ASSISTANT_LLM_MODEL": "qwen3.5-2b",
     "AUDITBOX_LINUX_REVIEW_LLM_MODEL": "command-guard",
     "AUDITBOX_AGENT_URL": "http://127.0.0.1:18765",
 }

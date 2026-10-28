@@ -21,7 +21,7 @@
 
 | 材料 | 来源与处理 |
 | --- | --- |
-| MiniCPM5 2B GGUF | 官方 `openbmb/MiniCPM5-2B-GGUF`，来源许可证记录为 Apache 2.0；固定 revision、文件哈希和来源链接见 [模型清单](models/manifest.json)。权重独立保存，分发时须保留模型卡和适用声明 |
+| Qwen3.5 2B GGUF | 基础模型为 `Qwen/Qwen3.5-2B`，使用 `unsloth/Qwen3.5-2B-GGUF` 的 Q4_K_M 量化制品，沿用 Apache 2.0 许可；固定 revision、文件哈希和来源链接见 [模型清单](models/manifest.json)。权重独立保存，分发时须保留上游模型卡和适用声明 |
 | Linux command-guard GGUF | Qwen3.5-0.8B 领域微调的 Q8_0 制品；采用 GPL-3.0-only，保留上游 Apache 2.0 许可和归属说明，见 [模型卡](models/model-cards/command-guard/README.md)。具体训练运行、数据授权及转换记录仍需补齐 |
 | H3C h3c-risk GGUF | Qwen3.5-0.8B 领域微调的 Q8_0 制品；采用 GPL-3.0-only，保留上游 Apache 2.0 许可和归属说明，见 [模型卡](models/model-cards/h3c-risk/README.md)。具体训练运行、数据授权及转换记录仍需补齐 |
 | llama.cpp CUDA 容器 | Compose 使用 `ghcr.io/ggml-org/llama.cpp` 的固定摘要；镜像单独获取，镜像内部组件及 GPU 运行时分发条款尚待核对 |

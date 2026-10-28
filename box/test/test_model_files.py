@@ -51,5 +51,5 @@ def test_model_verifier_cli_finds_manifest_from_another_directory(tmp_path):
     result = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)], cwd=tmp_path,
                             text=True, capture_output=True)
     assert result.returncode == 1
-    assert "Missing model: MiniCPM5-2B-Q4_K_M.gguf" in result.stderr
+    assert "Missing model: Qwen3.5-2B-Q4_K_M.gguf" in result.stderr
     assert "Traceback" not in result.stderr

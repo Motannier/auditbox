@@ -96,11 +96,11 @@ sudo systemctl start auditbox-server-{proxy,gateway,models,inference,agent}
 
 ### 模型选择与 AI 配置
 
-问答与命令审查可以分别启用。默认部署使用 MiniCPM5 和 Command Guard，H3C Risk 按需配置：
+问答与命令审查可以分别启用。默认部署使用 Qwen3.5 2B 和 Command Guard，H3C Risk 按需配置：
 
 | 模型 | 用途 | 配置 |
 | --- | --- | --- |
-| [MiniCPM5 2B](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF) | 标准／增强问答、Agent 计划与工具调用 | 上游 Q4_K_M 制品，默认问答模型 |
+| [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) | 标准／增强问答、Agent 计划与工具调用 | Unsloth Q4_K_M 制品，默认问答模型 |
 | [Command Guard 0.8B](https://huggingface.co/Motanni/auditbox-command-guard-0.8b-gguf) | Linux 近期命令与上下文风险审查 | 基于 Qwen3.5-0.8B 微调，Q8_0，默认审查模型 |
 | [H3C Risk 0.8B](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf) | H3C Comware 命令风险审查 | 基于 Qwen3.5-0.8B 微调，Q8_0，需单独配置端点与路由 |
 
