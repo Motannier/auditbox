@@ -1,100 +1,380 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="1520" viewBox="0 0 1060 1520" role="img" aria-labelledby="title description">
-  <title id="title">AuditBox 详细系统架构</title>
-  <desc id="description">浏览器经 Gateway 访问工作台。Agent 管理问答、上下文与工具审批，直接调用 Qwen3.5 2B；终端工具经 Gateway 复用 Proxy 连接。Proxy 负责 Enter 命令检查、SSH、Telnet、串口代理与辅助事件。Linux 旁路审查经 Inference 调用 Command Guard，H3C Risk 单独配置；华为、思科和中兴使用规则旁路审查。业务审计、Agent 状态及设备资料分别保存。目标设备通过宿主机网络或可用串口接入。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" class="architecture" viewBox="820 0 2300 2280" role="img" aria-labelledby="architecture-title architecture-desc" width="2300" height="2280">
+  <title id="architecture-title">AuditBox 端侧软件架构</title>
+  <desc id="architecture-desc">基于既有完整软件架构图的端侧视图。浏览器经 Gateway 连接 Agent 与 Proxy，命令经过规则闸门和协议适配后到达目标设备。设备资料支持补全、推荐、速查与旁路审查；Agent 直连 Qwen3.5 2B，Linux 审查经 Inference 调用 Command Guard，H3C 审查为可选服务。业务与 Agent 数据分别持久化。</desc>
+  <style>text{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}.zone-title{font-size:23px;font-weight:650;letter-spacing:.04em}.node-title{text-anchor:middle;fill:#203047;font-weight:650}.node-sub{text-anchor:middle;font-size:18px;fill:#61728a}.wire{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.wire.main{stroke-width:3.7}.wire.async{stroke-dasharray:9 7}.wire-halo{fill:none;stroke:white;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}.wire-label{font-size:18px;font-weight:500;paint-order:stroke;stroke:#fff;stroke-width:5;stroke-linejoin:round}</style>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#6c7e93"/></marker>
-    <style>
-      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; fill: #20334a; }
-      .heading { font-size: 22px; font-weight: 650; }
-      .subheading { font-size: 19px; font-weight: 600; }
-      .body { font-size: 17px; fill: #4c6178; }
-      .note { font-size: 16px; fill: #62768c; }
-      .link { fill: none; stroke: #6c7e93; stroke-width: 1.8; stroke-linejoin: round; }
-    </style>
+    <marker id="arrow-main" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#326bd2" />
+    </marker>
+    <marker id="arrow-async" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#168c83" />
+    </marker>
+    <marker id="arrow-model" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#7756cf" />
+    </marker>
+    <marker id="arrow-data" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#ac6c1e" />
+    </marker>
+    <marker id="arrow-neutral" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#6c7e94" />
+    </marker>
   </defs>
-  <rect width="1060" height="1520" rx="18" fill="#ffffff"/>
-  <text x="36" y="44" class="heading">AuditBox · 系统架构</text>
-  <text x="36" y="74" class="body">浏览器工作台、共享终端、AI 助手、命令防护与关联审计</text>
-  <rect x="180" y="98" width="700" height="92" rx="12" fill="#f6f9ff" stroke="#b5cce9" stroke-width="1.3"/>
-  <text x="530" y="134" class="heading" text-anchor="middle">浏览器工作台 · React / xterm</text>
-  <text x="530" y="165" class="body" text-anchor="middle">设备管理 · 多标签终端 · 命令辅助 · AI 对话 · 审计</text>
-  <rect x="20" y="224" width="1020" height="1104" rx="18" fill="#f8fafc" stroke="#cbd7e4" stroke-width="1.3"/>
-  <text x="42" y="252" class="subheading">AuditBox 主机 · Linux x86_64 / systemd</text>
-  <path class="link" d="M 530 190 V 276" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-  <text x="551" y="211" class="note">HTTP / WebSocket / SSE</text>
-  <rect x="72" y="276" width="916" height="104" rx="12" fill="#eaf2ff" stroke="#a6c3e9" stroke-width="1.3"/>
-  <text x="94" y="309" class="heading">Gateway · :18080</text>
-  <text x="94" y="340" class="body">登录与角色权限 · REST API · WebSocket 终端 · Agent HTTP / SSE 转发</text>
-  <text x="94" y="364" class="note">设备管理 · 会话建立 · 审计查询与导出</text>
-  <path class="link" d="M 287 380 V 460" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-  <path class="link" d="M 773 380 V 460" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-  <text x="302" y="427" class="note">问答 / 工具审批 / 终端工具桥</text>
-  <text x="788" y="427" class="note">终端 / 辅助事件</text>
-  <rect x="72" y="460" width="430" height="292" rx="12" fill="#f4f1fc" stroke="#c8bbe8" stroke-width="1.3"/>
-  <text x="94" y="493" class="heading">Agent · :18765</text>
-  <rect x="90" y="512" width="394" height="86" rx="8" fill="#ffffff" stroke="#d9d1eb" stroke-width="1.3"/>
-  <text x="108" y="540" class="subheading">问答与上下文</text>
-  <text x="108" y="569" class="body">标准 / 增强 · 历史压缩 · 对话文件</text>
-  <rect x="90" y="612" width="394" height="74" rx="8" fill="#ffffff" stroke="#d9d1eb" stroke-width="1.3"/>
-  <text x="108" y="640" class="subheading">工具与逐次审批</text>
-  <text x="108" y="667" class="body">共享终端 · MCP · Skill · 可选工具</text>
-  <text x="94" y="718" class="note">执行初始关闭 · 会话与运行状态持久化</text>
-  <rect x="558" y="460" width="430" height="292" rx="12" fill="#edf8f5" stroke="#a3cebf" stroke-width="1.3"/>
-  <text x="580" y="493" class="heading">Proxy · :19000</text>
-  <rect x="576" y="512" width="394" height="74" rx="8" fill="#ffffff" stroke="#bcdccd" stroke-width="1.3"/>
-  <text x="594" y="540" class="subheading">确定性命令闸门</text>
-  <text x="594" y="567" class="body">恢复 Enter 命令 → 放行 / 确认 / 阻断</text>
-  <rect x="576" y="600" width="394" height="56" rx="8" fill="#ffffff" stroke="#bcdccd" stroke-width="1.3"/>
-  <text x="594" y="634" class="body">SSH / Telnet / Serial · 已有终端连接</text>
-  <rect x="576" y="668" width="394" height="56" rx="8" fill="#ffffff" stroke="#bcdccd" stroke-width="1.3"/>
-  <text x="594" y="692" class="body">辅助事件 :19001 · 与 Proxy 同进程</text>
-  <text x="594" y="714" class="note">补全 · 速查 · 推荐 · 风险结果</text>
-  <path class="link" d="M 988 628 H 1016 V 1425 H 880" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-  <text x="107" y="820" class="note">直接问答 · OpenAI 兼容接口</text>
-  <text x="629" y="820" class="note">Linux / H3C 模型旁路审查</text>
-  <rect x="72" y="842" width="916" height="264" rx="12" fill="#fffdf8" stroke="#e6d7b5" stroke-width="1.3"/>
-  <text x="94" y="869" class="subheading">本地模型与推理路由</text>
-  <path class="link" d="M 287 752 V 794 H 60 V 974 H 90" marker-end="url(#arrow)"/>
-  <path class="link" d="M 773 752 V 794 H 527 V 884" marker-end="url(#arrow)"/>
-  <rect x="90" y="884" width="280" height="182" rx="12" fill="#fff4de" stroke="#dfc58e" stroke-width="1.3"/>
-  <text x="110" y="920" class="heading">Qwen3.5 2B</text>
-  <text x="110" y="951" class="body">Q4_K_M · :18081</text>
-  <text x="110" y="984" class="body">标准 / 增强问答</text>
-  <text x="110" y="1014" class="body">Agent 计划与工具调用</text>
-  <text x="110" y="1045" class="note">32K 运行上下文</text>
-  <rect x="402" y="884" width="250" height="182" rx="12" fill="#eef4fb" stroke="#b8cce3" stroke-width="1.3"/>
-  <text x="422" y="920" class="subheading">Inference · :18091</text>
-  <text x="422" y="953" class="body">设备平台路由</text>
-  <text x="422" y="983" class="body">请求排队与调度</text>
-  <text x="422" y="1016" class="note">仅调度经过自身的请求</text>
-  <path class="link" d="M 652 926 H 690" marker-end="url(#arrow)"/>
-  <path class="link" d="M 652 1024 H 690" marker-end="url(#arrow)" stroke-dasharray="6 4"/>
-  <rect x="690" y="884" width="280" height="82" rx="12" fill="#fff4de" stroke="#dfc58e" stroke-width="1.3"/>
-  <text x="710" y="916" class="subheading">Command Guard 0.8B</text>
-  <text x="710" y="947" class="body">Q8_0 · Linux · :18082</text>
-  <rect x="690" y="984" width="280" height="82" rx="12" fill="#fffaf0" stroke="#dfc58e" stroke-width="1.3" stroke-dasharray="6 4"/>
-  <text x="710" y="1016" class="subheading">H3C Risk 0.8B（可选）</text>
-  <text x="710" y="1047" class="body">Q8_0 · H3C · 独立服务</text>
-  <text x="94" y="1091" class="note">默认两个 llama.cpp CUDA 容器；H3C 模型需单独配置。</text>
-  <rect x="72" y="1148" width="916" height="152" rx="12" fill="#f3f6fa" stroke="#cbd7e4" stroke-width="1.3"/>
-  <text x="94" y="1177" class="subheading">持久化与设备资料</text>
-  <rect x="90" y="1190" width="284" height="92" rx="8" fill="#ffffff" stroke="#d4dfea" stroke-width="1.3"/>
-  <text x="106" y="1219" class="subheading">业务与审计 · Gateway / Proxy</text>
-  <text x="106" y="1245" class="note">SQLite · 登录 / 命令 / 行为</text>
-  <text x="106" y="1268" class="note">脱敏输出摘要 · JSONL 兼容记录</text>
-  <rect x="390" y="1190" width="284" height="92" rx="8" fill="#ffffff" stroke="#d4dfea" stroke-width="1.3"/>
-  <text x="406" y="1219" class="subheading">Agent 状态与文件</text>
-  <text x="406" y="1245" class="note">SQLite · 对话 / Run / 审批</text>
-  <text x="406" y="1268" class="note">对话文件 · Skill · 工作区</text>
-  <rect x="690" y="1190" width="280" height="92" rx="8" fill="#ffffff" stroke="#d4dfea" stroke-width="1.3"/>
-  <text x="706" y="1219" class="subheading">设备资料与能力包</text>
-  <text x="706" y="1245" class="note">补全 · 速查 · 推荐 · 风险规则</text>
-  <text x="706" y="1268" class="note">按平台加载 · OLT/ONU 包导入</text>
-  <text x="72" y="1132" class="note">旁路结果用于提示与审计；华为 / 思科 / 中兴在 Proxy 内使用规则审查。</text>
-  <text x="42" y="1318" class="note">除 Gateway 浏览器入口外，内部服务与模型保持回环监听。</text>
-  <rect x="180" y="1380" width="700" height="90" rx="12" fill="#f6f8fa" stroke="#b7c5d4" stroke-width="1.3"/>
-  <text x="530" y="1417" class="heading" text-anchor="middle">目标设备 · 宿主机现有网络 / 可用串口</text>
-  <text x="530" y="1447" class="body" text-anchor="middle">Linux · 交换机 · OLT/ONU（匹配型号的资料需导入）</text>
-  <text x="766" y="1359" class="note">SSH / Telnet / Serial</text>
-  <text x="36" y="1501" class="note">实线：默认请求或终端链路    虚线：可选模型路由    工具批准后，命令仍受确认与硬阻断规则约束</text>
+  <rect width="2300" height="2280" fill="#fff" x="820" />
+  <g class="zone">
+    <rect x="850" y="70" width="1860" height="1765" rx="18" fill="#fbfdfd" stroke="#8cb7b2" stroke-width="2" />
+    <text class="zone-title" x="874" y="109" fill="#52677f">AuditBox · Linux x86_64 服务器</text>
+  </g>
+  <g class="zone">
+    <rect x="880" y="165" width="1710" height="180" rx="18" fill="#edf4ff" stroke="#c4d5ef" stroke-width="2" />
+    <text class="zone-title" x="904" y="204" fill="#52677f">浏览器界面</text>
+  </g>
+  <g class="zone">
+    <rect x="880" y="385" width="1710" height="185" rx="18" fill="#f0f4fb" stroke="#c2cddd" stroke-width="2" />
+    <text class="zone-title" x="904" y="424" fill="#52677f">统一服务入口</text>
+  </g>
+  <g class="zone">
+    <rect x="880" y="620" width="1710" height="230" rx="18" fill="#eaf6f3" stroke="#a8cfc6" stroke-width="2" />
+    <text class="zone-title" x="904" y="659" fill="#52677f">受控终端执行</text>
+  </g>
+  <g class="zone">
+    <rect x="880" y="930" width="440" height="445" rx="18" fill="#f4f0fc" stroke="#d7caef" stroke-width="2" />
+    <text class="zone-title" x="904" y="969" fill="#52677f">对话与会话</text>
+  </g>
+  <g class="zone">
+    <rect x="1370" y="930" width="1220" height="225" rx="18" fill="#eef8f6" stroke="#bfddd6" stroke-width="2" />
+    <text class="zone-title" x="1394" y="969" fill="#52677f">设备能力</text>
+  </g>
+  <g class="zone">
+    <rect x="1790" y="1200" width="800" height="210" rx="18" fill="#eff7f5" stroke="#b5d4cb" stroke-width="2" />
+    <text class="zone-title" x="1814" y="1239" fill="#52677f">旁路审计与日志</text>
+  </g>
+  <g class="zone">
+    <rect x="1370" y="1390" width="390" height="225" rx="18" fill="#fff9ef" stroke="#e4d2b4" stroke-width="2" />
+    <text class="zone-title" x="1394" y="1429" fill="#52677f">版本化资产</text>
+  </g>
+  <g class="zone">
+    <rect x="1790" y="1450" width="450" height="380" rx="18" fill="#f4f0fc" stroke="#d7caef" stroke-width="2" />
+    <text class="zone-title" x="1814" y="1489" fill="#52677f">审查模型与调度</text>
+  </g>
+  <g class="zone">
+    <rect x="2250" y="1450" width="340" height="380" rx="18" fill="#f0f3f7" stroke="#c8d2de" stroke-width="2" />
+    <text class="zone-title" x="2274" y="1489" fill="#52677f">身份与连接</text>
+  </g>
+  <g class="zone">
+    <rect x="2760" y="620" width="310" height="230" rx="18" fill="#f0f5fb" stroke="#b3c5df" stroke-width="2" />
+    <text class="zone-title" x="2784" y="659" fill="#52677f">现场目标设备</text>
+  </g>
+  <g class="zone">
+    <rect x="850" y="1880" width="1860" height="220" rx="18" fill="#f0f3f7" stroke="#b7c4d4" stroke-width="2" />
+    <text class="zone-title" x="874" y="1919" fill="#52677f">系统运行支撑</text>
+  </g>
+  <g id="all-connections">
+    <g class="connection" data-from="terminal-ui" data-to="gateway" data-relations="1" data-bridges="0">
+      <title>终端 WebSocket</title>
+      <path class="wire-halo" d="M 1145 310 L 1145 430" />
+      <path class="wire main" d="M 1145 310 L 1145 430" stroke="#326bd2" marker-end="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="assistant-ui" data-to="gateway" data-relations="1" data-bridges="0">
+      <title>对话 / 审批 SSE</title>
+      <path class="wire-halo" d="M 1665 310 L 1665 430" />
+      <path class="wire main" d="M 1665 310 L 1665 430" stroke="#326bd2" marker-end="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="guide-ui" data-to="gateway" data-relations="1" data-bridges="0">
+      <title>命令辅助接口</title>
+      <path class="wire-halo" d="M 2185 310 L 2185 430" />
+      <path class="wire neutral" d="M 2185 310 L 2185 430" stroke="#6c7e94" marker-end="url(#arrow-neutral)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="terminal" data-relations="1" data-bridges="0">
+      <title>既有终端会话</title>
+      <path class="wire-halo" d="M 1570 540 L 1570 690" />
+      <path class="wire main" d="M 1570 540 L 1570 690" stroke="#326bd2" marker-end="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="terminal" data-to="gate" data-relations="1" data-bridges="0">
+      <title>提交命令</title>
+      <path class="wire-halo" d="M 1730 745 L 1830 745" />
+      <path class="wire main" d="M 1730 745 L 1830 745" stroke="#326bd2" marker-end="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="gate" data-to="adapters" data-relations="1" data-bridges="0">
+      <title>放行后转发</title>
+      <path class="wire-halo" d="M 2150 745 L 2250 745" />
+      <path class="wire main" d="M 2150 745 L 2250 745" stroke="#326bd2" marker-end="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="adapters" data-to="targets" data-relations="1" data-bridges="0">
+      <title>协议连接</title>
+      <path class="wire-halo" d="M 2550 745 L 2780 745" />
+      <path class="wire main" d="M 2550 745 L 2780 745" stroke="#326bd2" marker-end="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="agent" data-relations="2" data-bridges="0">
+      <title>对话与流式事件 / 工具批准、内部执行</title>
+      <path class="wire-halo" d="M 1110 540 L 1110 690" />
+      <path class="wire main" d="M 1110 540 L 1110 690" stroke="#326bd2" marker-end="url(#arrow-main)" marker-start="url(#arrow-main)" />
+    </g>
+    <g class="connection" data-from="agent" data-to="model-2b" data-relations="1" data-bridges="0">
+      <title>直连 :18081</title>
+      <path class="wire-halo" d="M 1110 800 L 1110 1000" />
+      <path class="wire model" d="M 1110 800 L 1110 1000" stroke="#7756cf" marker-end="url(#arrow-model)" />
+    </g>
+    <g class="connection" data-from="agent" data-to="agent-db" data-relations="1" data-bridges="0">
+      <title>会话持久化</title>
+      <path class="wire-halo" d="M 930 760 L 900 760 L 900 1280 L 930 1280" />
+      <path class="wire data" d="M 930 760 L 900 760 L 900 1280 L 930 1280" stroke="#ac6c1e" marker-end="url(#arrow-data)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="profiles" data-relations="1" data-bridges="2">
+      <title>设备类型路由</title>
+      <path class="wire-halo" d="M 2190 540 L 2190 737 C 2202 737 2202 753 2190 753 L 2190 892 C 2202 892 2202 908 2190 908 L 2190 960 L 2070 960 L 2070 1000" />
+      <path class="wire neutral" d="M 2190 540 L 2190 737 C 2202 737 2202 753 2190 753 L 2190 892 C 2202 892 2202 908 2190 908 L 2190 960 L 2070 960 L 2070 1000" stroke="#6c7e94" marker-end="url(#arrow-neutral)" />
+    </g>
+    <g class="connection" data-from="profiles" data-to="gate" data-relations="1" data-bridges="0">
+      <title>执行前规则</title>
+      <path class="wire-halo" d="M 1990 1000 L 1990 800" />
+      <path class="wire async" d="M 1990 1000 L 1990 800" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="profiles" data-to="recommend" data-relations="1" data-bridges="0">
+      <title>语法与行为关系</title>
+      <path class="wire-halo" d="M 1830 1050 L 1730 1050" />
+      <path class="wire async" d="M 1830 1050 L 1730 1050" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="terminal" data-to="recommend" data-relations="1" data-bridges="0">
+      <title>仅人工输入触发</title>
+      <path class="wire-halo" d="M 1570 800 L 1570 1000" />
+      <path class="wire async" d="M 1570 800 L 1570 1000" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="profiles" data-to="guide" data-relations="1" data-bridges="0">
+      <title>行为指令模板</title>
+      <path class="wire-halo" d="M 2150 1050 L 2250 1050" />
+      <path class="wire async" d="M 2150 1050 L 2250 1050" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="guide" data-relations="1" data-bridges="1">
+      <title>速查接口</title>
+      <path class="wire-halo" d="M 2550 525 L 2590 525 L 2590 737 C 2602 737 2602 753 2590 753 L 2590 1050 L 2550 1050" />
+      <path class="wire neutral" d="M 2550 525 L 2590 525 L 2590 737 C 2602 737 2602 753 2590 753 L 2590 1050 L 2550 1050" stroke="#6c7e94" marker-end="url(#arrow-neutral)" />
+    </g>
+    <g class="connection" data-from="terminal" data-to="review" data-relations="1" data-bridges="1">
+      <title>执行快照</title>
+      <path class="wire-halo" d="M 1730 770 L 1755 770 L 1755 1042 C 1767 1042 1767 1058 1755 1058 L 1755 1310 L 1830 1310" />
+      <path class="wire async" d="M 1730 770 L 1755 770 L 1755 1042 C 1767 1042 1767 1058 1755 1058 L 1755 1310 L 1830 1310" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="profiles" data-to="review" data-relations="1" data-bridges="0">
+      <title>品牌规则</title>
+      <path class="wire-halo" d="M 1990 1100 L 1990 1270" />
+      <path class="wire async" d="M 1990 1100 L 1990 1270" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="review" data-to="inference" data-relations="1" data-bridges="0">
+      <title>Linux / H3C</title>
+      <path class="wire-halo" d="M 1990 1370 L 1990 1500" />
+      <path class="wire model" d="M 1990 1370 L 1990 1500" stroke="#7756cf" marker-end="url(#arrow-model)" />
+    </g>
+    <g class="connection" data-from="inference" data-to="linux-model" data-relations="1" data-bridges="0">
+      <title>Linux 路由</title>
+      <path class="wire-halo" d="M 1960 1600 L 1960 1650 L 1900 1650 L 1900 1710" />
+      <path class="wire model" d="M 1960 1600 L 1960 1650 L 1900 1650 L 1900 1710" stroke="#7756cf" marker-end="url(#arrow-model)" />
+    </g>
+    <g class="connection" data-from="inference" data-to="h3c-model" data-relations="1" data-bridges="0">
+      <title>H3C 路由</title>
+      <path class="wire-halo" d="M 2020 1600 L 2020 1650 L 2130 1650 L 2130 1710" />
+      <path class="wire model" d="M 2020 1600 L 2020 1650 L 2130 1650 L 2130 1710" stroke="#7756cf" marker-end="url(#arrow-model)" stroke-dasharray="9 7" />
+    </g>
+    <g class="connection" data-from="review" data-to="audit-db" data-relations="1" data-bridges="0">
+      <title>风险与结果留痕</title>
+      <path class="wire-halo" d="M 2150 1320 L 2250 1320" />
+      <path class="wire data" d="M 2150 1320 L 2250 1320" stroke="#ac6c1e" marker-end="url(#arrow-data)" />
+    </g>
+    <g class="connection" data-from="gate" data-to="audit-db" data-relations="1" data-bridges="1">
+      <title>执行 / 确认记录</title>
+      <path class="wire-halo" d="M 2070 800 L 2070 900 L 2215 900 L 2215 1042 C 2227 1042 2227 1058 2215 1058 L 2215 1230 L 2320 1230 L 2320 1270" />
+      <path class="wire data" d="M 2070 800 L 2070 900 L 2215 900 L 2215 1042 C 2227 1042 2227 1058 2215 1058 L 2215 1230 L 2320 1230 L 2320 1270" stroke="#ac6c1e" marker-end="url(#arrow-data)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="audit-db" data-relations="1" data-bridges="1">
+      <title>登录与输入关联</title>
+      <path class="wire-halo" d="M 2550 500 L 2620 500 L 2620 737 C 2632 737 2632 753 2620 753 L 2620 1345 L 2550 1345" />
+      <path class="wire data" d="M 2550 500 L 2620 500 L 2620 737 C 2632 737 2632 753 2620 753 L 2620 1345 L 2550 1345" stroke="#ac6c1e" marker-end="url(#arrow-data)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="assets" data-relations="1" data-bridges="0">
+      <title>校验后安装</title>
+      <path class="wire-halo" d="M 1350 540 L 1350 1500 L 1410 1500" />
+      <path class="wire async" d="M 1350 540 L 1350 1500 L 1410 1500" stroke="#168c83" marker-end="url(#arrow-async)" />
+    </g>
+    <g class="connection" data-from="profiles" data-to="assets" data-relations="1" data-bridges="1">
+      <title>加载版本化能力</title>
+      <path class="wire-halo" d="M 1830 1080 L 1780 1080 L 1780 1302 C 1792 1302 1792 1318 1780 1318 L 1780 1500 L 1730 1500" />
+      <path class="wire data" d="M 1830 1080 L 1780 1080 L 1780 1302 C 1792 1302 1792 1318 1780 1318 L 1780 1500 L 1730 1500" stroke="#ac6c1e" marker-end="url(#arrow-data)" />
+    </g>
+    <g class="connection" data-from="adapters" data-to="network" data-relations="1" data-bridges="3">
+      <title>网络与串口</title>
+      <path class="wire-halo" d="M 2550 770 L 2565 770 L 2565 1042 C 2577 1042 2577 1058 2565 1058 L 2565 1337 C 2577 1337 2577 1353 2565 1353 L 2565 1552 C 2577 1552 2577 1568 2565 1568 L 2565 1660 L 2400 1660 L 2400 1710" />
+      <path class="wire neutral" d="M 2550 770 L 2565 770 L 2565 1042 C 2577 1042 2577 1058 2565 1058 L 2565 1337 C 2577 1337 2577 1353 2565 1353 L 2565 1552 C 2577 1552 2577 1568 2565 1568 L 2565 1660 L 2400 1660 L 2400 1710" stroke="#6c7e94" marker-end="url(#arrow-neutral)" />
+    </g>
+    <g class="connection" data-from="gateway" data-to="identity" data-relations="1" data-bridges="1">
+      <title>CPU ID / 校时</title>
+      <path class="wire-halo" d="M 2550 475 L 2650 475 L 2650 737 C 2662 737 2662 753 2650 753 L 2650 1560 L 2550 1560" />
+      <path class="wire neutral" d="M 2550 475 L 2650 475 L 2650 737 C 2662 737 2662 753 2650 753 L 2650 1560 L 2550 1560" stroke="#6c7e94" marker-end="url(#arrow-neutral)" />
+    </g>
+    <g class="connection" data-from="systemd" data-to="os" data-relations="1" data-bridges="0">
+      <title>服务与运行环境</title>
+      <path class="wire-halo" d="M 1760 2005 L 1580 2005" />
+      <path class="wire neutral" d="M 1760 2005 L 1580 2005" stroke="#6c7e94" marker-end="url(#arrow-neutral)" />
+    </g>
+  </g>
+  <g id="all-nodes">
+    <g class="node" id="terminal-ui" data-x="930" data-y="210" data-w="430" data-h="100">
+      <rect x="930" y="210" width="430" height="100" rx="12" fill="#fff" stroke="#8caad5" stroke-width="2.3" />
+      <text class="node-title" x="1145" y="256" font-size="24">设备与终端控制台</text>
+      <text class="node-sub" x="1145" y="285">React · xterm.js</text>
+    </g>
+    <g class="node" id="assistant-ui" data-x="1450" data-y="210" data-w="430" data-h="100">
+      <rect x="1450" y="210" width="430" height="100" rx="12" fill="#fff" stroke="#8caad5" stroke-width="2.3" />
+      <text class="node-title" x="1665" y="256" font-size="24">运维助手</text>
+      <text class="node-sub" x="1665" y="285">标准 / 增强 · 执行批准</text>
+    </g>
+    <g class="node" id="guide-ui" data-x="1970" data-y="210" data-w="430" data-h="100">
+      <rect x="1970" y="210" width="430" height="100" rx="12" fill="#fff" stroke="#8caad5" stroke-width="2.3" />
+      <text class="node-title" x="2185" y="256" font-size="24">指令速查与智能辅助</text>
+      <text class="node-sub" x="2185" y="285">常用操作 · 参数填充</text>
+    </g>
+    <g class="node" id="gateway" data-x="930" data-y="430" data-w="1620" data-h="110">
+      <rect x="930" y="430" width="1620" height="110" rx="12" fill="#eef5ff" stroke="#6d96d3" stroke-width="2.3" />
+      <text class="node-title" x="1740" y="481" font-size="28">auditbox-gateway · FastAPI</text>
+      <text class="node-sub" x="1740" y="510">REST / WebSocket / SSE · :18080</text>
+    </g>
+    <g class="node" id="agent" data-x="930" data-y="690" data-w="360" data-h="110">
+      <title>执行开关初始关闭；终端写入和 Ctrl+C 逐次审批，经 Gateway 复用已有终端。</title>
+      <rect x="930" y="690" width="360" height="110" rx="12" fill="#fff" stroke="#9cbdb6" stroke-width="2.3" />
+      <text class="node-title" x="1110" y="741" font-size="24">Agent 对话编排</text>
+      <text class="node-sub" x="1110" y="770">Agno · 审批与上下文 · :18765</text>
+    </g>
+    <g class="node" id="terminal" data-x="1410" data-y="690" data-w="320" data-h="110">
+      <rect x="1410" y="690" width="320" height="110" rx="12" fill="#fff" stroke="#5990c7" stroke-width="2.3" />
+      <text class="node-title" x="1570" y="741" font-size="24">终端会话代理</text>
+      <text class="node-sub" x="1570" y="770">auditbox-proxy · :19000</text>
+    </g>
+    <g class="node" id="gate" data-x="1830" data-y="690" data-w="320" data-h="110">
+      <rect x="1830" y="690" width="320" height="110" rx="12" fill="#fff" stroke="#5990c7" stroke-width="2.3" />
+      <text class="node-title" x="1990" y="741" font-size="24">CommandGate 规则闸门</text>
+      <text class="node-sub" x="1990" y="770">Enter 前检查 · 确认 / 阻断</text>
+    </g>
+    <g class="node" id="adapters" data-x="2250" data-y="690" data-w="300" data-h="110">
+      <rect x="2250" y="690" width="300" height="110" rx="12" fill="#fff" stroke="#5990c7" stroke-width="2.3" />
+      <text class="node-title" x="2400" y="741" font-size="24">协议适配与交互状态</text>
+      <text class="node-sub" x="2400" y="770">SSH / Telnet / USB Console</text>
+    </g>
+    <g class="node" id="targets" data-x="2780" data-y="690" data-w="270" data-h="110">
+      <title>OLT/ONU 的具体型号资料需要额外导入，终端操作需要可用的 CLI。</title>
+      <rect x="2780" y="690" width="270" height="110" rx="12" fill="#fff" stroke="#8aa8ce" stroke-width="2.3" />
+      <text class="node-title" x="2915" y="741" font-size="24">目标运维设备</text>
+      <text class="node-sub" x="2915" y="770">Linux / 交换机 / OLT/ONU</text>
+    </g>
+    <g class="node" id="model-2b" data-x="930" data-y="1000" data-w="360" data-h="100">
+      <rect x="930" y="1000" width="360" height="100" rx="12" fill="#fff" stroke="#b29bda" stroke-width="2.3" />
+      <text class="node-title" x="1110" y="1046" font-size="24">Qwen3.5-2B 对话模型</text>
+      <text class="node-sub" x="1110" y="1075">Q4_K_M · CUDA · :18081 · 32K</text>
+    </g>
+    <g class="node" id="agent-db" data-x="930" data-y="1230" data-w="360" data-h="100">
+      <rect x="930" y="1230" width="360" height="100" rx="12" fill="#fff" stroke="#d1b98e" stroke-width="2.3" />
+      <text class="node-title" x="1110" y="1276" font-size="24">Agent 会话与文件</text>
+      <text class="node-sub" x="1110" y="1305">SQLite · Run / 审批 / 对话文件</text>
+    </g>
+    <g class="node" id="recommend" data-x="1410" data-y="1000" data-w="320" data-h="100">
+      <rect x="1410" y="1000" width="320" height="100" rx="12" fill="#fff" stroke="#9cbdb6" stroke-width="2.3" />
+      <text class="node-title" x="1570" y="1046" font-size="24">智能补全与行为推荐</text>
+      <text class="node-sub" x="1570" y="1075">Proxy 辅助事件 · :19001</text>
+    </g>
+    <g class="node" id="profiles" data-x="1830" data-y="1000" data-w="320" data-h="100">
+      <rect x="1830" y="1000" width="320" height="100" rx="12" fill="#fff" stroke="#9cbdb6" stroke-width="2.3" />
+      <text class="node-title" x="1990" y="1046" font-size="24">设备类型与能力路由</text>
+      <text class="node-sub" x="1990" y="1075">命令语法 · 行为图 · 风险规则</text>
+    </g>
+    <g class="node" id="guide" data-x="2250" data-y="1000" data-w="300" data-h="100">
+      <rect x="2250" y="1000" width="300" height="100" rx="12" fill="#fff" stroke="#9cbdb6" stroke-width="2.3" />
+      <text class="node-title" x="2400" y="1046" font-size="24">按行为指令速查</text>
+      <text class="node-sub" x="2400" y="1075">命令模板 · 填入终端</text>
+    </g>
+    <g class="node" id="review" data-x="1830" data-y="1270" data-w="320" data-h="100">
+      <rect x="1830" y="1270" width="320" height="100" rx="12" fill="#fff" stroke="#9cbdb6" stroke-width="2.3" />
+      <text class="node-title" x="1990" y="1316" font-size="24">命令历史旁路审查</text>
+      <text class="node-sub" x="1990" y="1345">异步快照 · 品牌规则 / 模型</text>
+    </g>
+    <g class="node" id="audit-db" data-x="2250" data-y="1270" data-w="300" data-h="100">
+      <rect x="2250" y="1270" width="300" height="100" rx="12" fill="#fff" stroke="#d1b98e" stroke-width="2.3" />
+      <text class="node-title" x="2400" y="1316" font-size="24">业务与关联审计</text>
+      <text class="node-sub" x="2400" y="1345">SQLite · 脱敏摘要 / JSONL</text>
+    </g>
+    <g class="node" id="assets" data-x="1410" data-y="1450" data-w="320" data-h="100">
+      <rect x="1410" y="1450" width="320" height="100" rx="12" fill="#fff" stroke="#d1b98e" stroke-width="2.3" />
+      <text class="node-title" x="1570" y="1496" font-size="24">设备能力包与模型文件</text>
+      <text class="node-sub" x="1570" y="1525">行为图 · 风险规则 · GGUF</text>
+    </g>
+    <g class="node" id="inference" data-x="1830" data-y="1500" data-w="320" data-h="100">
+      <rect x="1830" y="1500" width="320" height="100" rx="12" fill="#fff" stroke="#b29bda" stroke-width="2.3" />
+      <text class="node-title" x="1990" y="1546" font-size="24">审查推理调度</text>
+      <text class="node-sub" x="1990" y="1575">平台路由 · 请求调度 · :18091</text>
+    </g>
+    <g class="node" id="linux-model" data-x="1800" data-y="1710" data-w="200" data-h="90">
+      <rect x="1800" y="1710" width="200" height="90" rx="12" fill="#fff" stroke="#b29bda" stroke-width="2.3" />
+      <text class="node-title" x="1900" y="1751" font-size="24">Linux 0.8B</text>
+      <text class="node-sub" x="1900" y="1780">Q8_0 · :18082</text>
+    </g>
+    <g class="node" id="h3c-model" data-x="2030" data-y="1710" data-w="200" data-h="90">
+      <rect x="2030" y="1710" width="200" height="90" rx="12" fill="#fff" stroke="#b29bda" stroke-width="2.3" stroke-dasharray="8 6" />
+      <text class="node-title" x="2130" y="1751" font-size="24">H3C 0.8B</text>
+      <text class="node-sub" x="2130" y="1780">可选 · 独立服务</text>
+    </g>
+    <g class="node" id="identity" data-x="2250" data-y="1510" data-w="300" data-h="100">
+      <rect x="2250" y="1510" width="300" height="100" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
+      <text class="node-title" x="2400" y="1556" font-size="24">实例身份与凭据</text>
+      <text class="node-sub" x="2400" y="1585">登录账号 · 稳定实例 ID</text>
+    </g>
+    <g class="node" id="network" data-x="2250" data-y="1710" data-w="300" data-h="90">
+      <rect x="2250" y="1710" width="300" height="90" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
+      <text class="node-title" x="2400" y="1751" font-size="24">宿主机网络 / 串口</text>
+      <text class="node-sub" x="2400" y="1780">沿用现有网络 · 可用串口</text>
+    </g>
+    <g class="node" id="os" data-x="930" data-y="1960" data-w="650" data-h="90">
+      <rect x="930" y="1960" width="650" height="90" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
+      <text class="node-title" x="1255" y="2001" font-size="24">Linux / Python / CUDA 推理</text>
+      <text class="node-sub" x="1255" y="2030">默认两个模型容器 · H3C 单独部署</text>
+    </g>
+    <g class="node" id="systemd" data-x="1760" data-y="1960" data-w="650" data-h="90">
+      <rect x="1760" y="1960" width="650" height="90" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
+      <text class="node-title" x="2085" y="2001" font-size="24">systemd 服务管理</text>
+      <text class="node-sub" x="2085" y="2030">启动顺序 · 异常重启 · 版本切换</text>
+    </g>
+  </g>
+  <g id="connection-labels">
+    <text class="wire-label" x="1160" y="378" fill="#326bd2" text-anchor="start">终端 WS</text>
+    <text class="wire-label" x="1680" y="378" fill="#326bd2" text-anchor="start">对话 / SSE</text>
+    <text class="wire-label" x="2200" y="378" fill="#6c7e94" text-anchor="start">命令辅助接口</text>
+    <text class="wire-label" x="1585" y="621" fill="#326bd2" text-anchor="start">终端会话</text>
+    <text class="wire-label" x="1780" y="724" fill="#326bd2" text-anchor="middle">提交命令</text>
+    <text class="wire-label" x="2200" y="716" fill="#326bd2" text-anchor="middle">放行后转发</text>
+    <text class="wire-label" x="2670" y="715" fill="#326bd2" text-anchor="middle">SSH / Telnet / Console</text>
+    <text class="wire-label" x="1125" y="621" fill="#326bd2" text-anchor="start">对话 / 批准执行</text>
+    <text class="wire-label" x="1125" y="907" fill="#7756cf" text-anchor="start">直连 :18081</text>
+    <text class="wire-label" x="885" y="1170" fill="#ac6c1e" transform="rotate(-90 885 1170)" text-anchor="start">会话持久化</text>
+    <text class="wire-label" x="2205" y="872" fill="#6c7e94" text-anchor="start">设备能力</text>
+    <text class="wire-label" x="2005" y="875" fill="#168c83" text-anchor="start">执行前规则</text>
+    <text class="wire-label" x="1780" y="1031" fill="#168c83" text-anchor="middle">行为 / 语法</text>
+    <text class="wire-label" x="1585" y="910" fill="#168c83" text-anchor="start">命令辅助事件</text>
+    <text class="wire-label" x="2200" y="1031" fill="#168c83" text-anchor="middle">速查模板</text>
+    <text class="wire-label" x="1740" y="1210" fill="#168c83" transform="rotate(-90 1740 1210)" text-anchor="start">执行快照</text>
+    <text class="wire-label" x="2005" y="1195" fill="#168c83" text-anchor="start">品牌规则</text>
+    <text class="wire-label" x="2005" y="1445" fill="#7756cf" text-anchor="start">Linux / 可选 H3C</text>
+    <text class="wire-label" x="2200" y="1301" fill="#ac6c1e" text-anchor="middle">风险 / 结果</text>
+    <text class="wire-label" x="2233" y="1185" fill="#ac6c1e" transform="rotate(-90 2233 1185)" text-anchor="start">执行 / 确认</text>
+    <text class="wire-label" x="1334" y="1290" fill="#168c83" transform="rotate(-90 1334 1290)" text-anchor="start">校验 / 安装</text>
+    <text class="wire-label" x="1800" y="1450" fill="#ac6c1e" transform="rotate(-90 1800 1450)" text-anchor="start">能力资料读取</text>
+    <text class="wire-label" x="1670" y="1986" fill="#6c7e94" text-anchor="middle">服务管理</text>
+  </g>
+  <text x="850" y="42" font-size="31" font-weight="700" fill="#203047">AuditBox 端侧软件架构</text>
+  <line x1="910" y1="2165" x2="975" y2="2165" stroke="#326bd2" stroke-width="3" />
+  <text x="990" y="2171" font-size="19" fill="#61728a">服务 / 执行调用</text>
+  <line x1="1340" y1="2165" x2="1405" y2="2165" stroke="#168c83" stroke-width="3" stroke-dasharray="9 7" />
+  <text x="1420" y="2171" font-size="19" fill="#61728a">能力 / 旁路审查</text>
+  <line x1="1770" y1="2165" x2="1835" y2="2165" stroke="#7756cf" stroke-width="3" />
+  <text x="1850" y="2171" font-size="19" fill="#61728a">模型调用</text>
+  <line x1="2200" y1="2165" x2="2265" y2="2165" stroke="#ac6c1e" stroke-width="3" />
+  <text x="2280" y="2171" font-size="19" fill="#61728a">数据读写</text>
+  <line x1="2630" y1="2165" x2="2695" y2="2165" stroke="#6c7e94" stroke-width="3" />
+  <text x="2710" y="2171" font-size="19" fill="#61728a">接口 / 运行依赖</text>
+  <text x="850" y="2220" font-size="19" fill="#61728a">图中矩形表示逻辑组件；Gateway、Proxy、Inference、Agent 为独立应用进程，其余为模块、模型或存储。</text>
+  <text x="850" y="2255" font-size="19" fill="#61728a">Agent 终端写入须逐次审批，命令继续经过规则闸门；旁路审查提供提示与审计。OLT/ONU 具体型号资料需另行导入。</text>
 </svg>
