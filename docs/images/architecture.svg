@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" class="architecture" viewBox="820 0 2300 2280" role="img" aria-labelledby="architecture-title architecture-desc" width="2300" height="2280">
   <title id="architecture-title">AuditBox 端侧软件架构</title>
-  <desc id="architecture-desc">基于既有完整软件架构图的端侧视图。浏览器经 Gateway 连接 Agent 与 Proxy，命令经过规则闸门和协议适配后到达目标设备。设备资料支持补全、推荐、速查与旁路审查；Agent 直连 Qwen3.5 2B，Linux 审查经 Inference 调用 Command Guard，H3C 审查为可选服务。业务与 Agent 数据分别持久化。</desc>
+  <desc id="architecture-desc">基于既有完整软件架构图的端侧视图。浏览器经 Gateway 连接 Agent 与 Proxy，命令经过规则闸门和协议适配后到达目标设备。设备资料支持补全、推荐、速查与旁路审查；Agent 直连 Qwen3.5 2B，Linux 审查经 Inference 调用 Command Guard，交换机及其他终端设备可按需适配经过微调训练的模型与路由。业务与 Agent 数据分别持久化。</desc>
   <style>text{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}.zone-title{font-size:23px;font-weight:650;letter-spacing:.04em}.node-title{text-anchor:middle;fill:#203047;font-weight:650}.node-sub{text-anchor:middle;font-size:18px;fill:#61728a}.wire{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.wire.main{stroke-width:3.7}.wire.async{stroke-dasharray:9 7}.wire-halo{fill:none;stroke:white;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}.wire-label{font-size:18px;font-weight:500;paint-order:stroke;stroke:#fff;stroke-width:5;stroke-linejoin:round}</style>
   <defs>
     <marker id="arrow-main" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="9" refY="5" orient="auto-start-reverse" markerUnits="strokeWidth">
@@ -62,7 +62,7 @@
   </g>
   <g class="zone">
     <rect x="2760" y="620" width="310" height="230" rx="18" fill="#f0f5fb" stroke="#b3c5df" stroke-width="2" />
-    <text class="zone-title" x="2784" y="659" fill="#52677f">现场目标设备</text>
+    <text class="zone-title" x="2784" y="659" fill="#52677f" font-size="21" style="font-size:21px">现场服务器、交换机等设备</text>
   </g>
   <g class="zone">
     <rect x="850" y="1880" width="1860" height="220" rx="18" fill="#f0f3f7" stroke="#b7c4d4" stroke-width="2" />
@@ -160,7 +160,7 @@
       <path class="wire async" d="M 1990 1100 L 1990 1270" stroke="#168c83" marker-end="url(#arrow-async)" />
     </g>
     <g class="connection" data-from="review" data-to="inference" data-relations="1" data-bridges="0">
-      <title>Linux / H3C</title>
+      <title>Linux / 交换机及其他终端设备（其他模型按需适配）</title>
       <path class="wire-halo" d="M 1990 1370 L 1990 1500" />
       <path class="wire model" d="M 1990 1370 L 1990 1500" stroke="#7756cf" marker-end="url(#arrow-model)" />
     </g>
@@ -169,8 +169,8 @@
       <path class="wire-halo" d="M 1960 1600 L 1960 1650 L 1900 1650 L 1900 1710" />
       <path class="wire model" d="M 1960 1600 L 1960 1650 L 1900 1650 L 1900 1710" stroke="#7756cf" marker-end="url(#arrow-model)" />
     </g>
-    <g class="connection" data-from="inference" data-to="h3c-model" data-relations="1" data-bridges="0">
-      <title>H3C 路由</title>
+    <g class="connection" data-from="inference" data-to="finetuned-model" data-relations="1" data-bridges="0">
+      <title>其他微调模型路由（可选，需适配对应设备平台）</title>
       <path class="wire-halo" d="M 2020 1600 L 2020 1650 L 2130 1650 L 2130 1710" />
       <path class="wire model" d="M 2020 1600 L 2020 1650 L 2130 1650 L 2130 1710" stroke="#7756cf" marker-end="url(#arrow-model)" stroke-dasharray="9 7" />
     </g>
@@ -260,8 +260,11 @@
     <g class="node" id="targets" data-x="2780" data-y="690" data-w="270" data-h="110">
       <title>OLT/ONU 的具体型号资料需要额外导入，终端操作需要可用的 CLI。</title>
       <rect x="2780" y="690" width="270" height="110" rx="12" fill="#fff" stroke="#8aa8ce" stroke-width="2.3" />
-      <text class="node-title" x="2915" y="741" font-size="24">目标运维设备</text>
-      <text class="node-sub" x="2915" y="770">Linux / 交换机 / OLT/ONU</text>
+      <text class="node-title" x="2915" y="731" font-size="24">目标运维设备</text>
+      <text class="node-sub" x="2915" y="759">
+        <tspan x="2915" y="759">Linux / 交换机</tspan>
+        <tspan x="2915" y="783">OLT/ONU 等设备</tspan>
+      </text>
     </g>
     <g class="node" id="model-2b" data-x="930" data-y="1000" data-w="360" data-h="100">
       <rect x="930" y="1000" width="360" height="100" rx="12" fill="#fff" stroke="#b29bda" stroke-width="2.3" />
@@ -313,10 +316,13 @@
       <text class="node-title" x="1900" y="1751" font-size="24">Linux 0.8B</text>
       <text class="node-sub" x="1900" y="1780">Q8_0 · :18082</text>
     </g>
-    <g class="node" id="h3c-model" data-x="2030" data-y="1710" data-w="200" data-h="90">
+    <g class="node" id="finetuned-model" data-x="2030" data-y="1710" data-w="200" data-h="90">
       <rect x="2030" y="1710" width="200" height="90" rx="12" fill="#fff" stroke="#b29bda" stroke-width="2.3" stroke-dasharray="8 6" />
-      <text class="node-title" x="2130" y="1751" font-size="24">H3C 0.8B</text>
-      <text class="node-sub" x="2130" y="1780">可选 · 独立服务</text>
+      <text class="node-title" x="2130" y="1738" font-size="21">
+        <tspan x="2130" y="1738">其他经过微调</tspan>
+        <tspan x="2130" y="1762">训练的模型</tspan>
+      </text>
+      <text class="node-sub" x="2130" y="1788">可选 · 需适配路由</text>
     </g>
     <g class="node" id="identity" data-x="2250" data-y="1510" data-w="300" data-h="100">
       <rect x="2250" y="1510" width="300" height="100" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
@@ -331,7 +337,7 @@
     <g class="node" id="os" data-x="930" data-y="1960" data-w="650" data-h="90">
       <rect x="930" y="1960" width="650" height="90" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
       <text class="node-title" x="1255" y="2001" font-size="24">Linux / Python / CUDA 推理</text>
-      <text class="node-sub" x="1255" y="2030">默认两个模型容器 · H3C 单独部署</text>
+      <text class="node-sub" x="1255" y="2030">默认两个模型容器 · 其他模型按需部署</text>
     </g>
     <g class="node" id="systemd" data-x="1760" data-y="1960" data-w="650" data-h="90">
       <rect x="1760" y="1960" width="650" height="90" rx="12" fill="#fff" stroke="#aab9cb" stroke-width="2.3" />
@@ -357,7 +363,10 @@
     <text class="wire-label" x="2200" y="1031" fill="#168c83" text-anchor="middle">速查模板</text>
     <text class="wire-label" x="1740" y="1210" fill="#168c83" transform="rotate(-90 1740 1210)" text-anchor="start">执行快照</text>
     <text class="wire-label" x="2005" y="1195" fill="#168c83" text-anchor="start">品牌规则</text>
-    <text class="wire-label" x="2005" y="1445" fill="#7756cf" text-anchor="start">Linux / 可选 H3C</text>
+    <text class="wire-label" x="2005" y="1433" fill="#7756cf" text-anchor="start">
+      <tspan x="2005" y="1433">Linux / 交换机及其他</tspan>
+      <tspan x="2005" y="1457">终端设备（按需适配）</tspan>
+    </text>
     <text class="wire-label" x="2200" y="1301" fill="#ac6c1e" text-anchor="middle">风险 / 结果</text>
     <text class="wire-label" x="2233" y="1185" fill="#ac6c1e" transform="rotate(-90 2233 1185)" text-anchor="start">执行 / 确认</text>
     <text class="wire-label" x="1334" y="1290" fill="#168c83" transform="rotate(-90 1334 1290)" text-anchor="start">校验 / 安装</text>
