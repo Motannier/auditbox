@@ -114,7 +114,7 @@ sudo systemctl start auditbox-server-{proxy,gateway,models,inference,agent}
 
 操作员通过浏览器访问 AuditBox，AuditBox 主机通过现有网络或可用串口连接目标设备。设备账号的权限和原生 CLI 决定可执行的操作。
 
-[![AuditBox 详细架构](docs/images/architecture.svg)](docs/images/architecture.svg)
+[![AuditBox 端侧软件架构](docs/images/architecture.svg)](docs/images/architecture.svg)
 
 Gateway 负责登录、浏览器接口和终端会话；Proxy 持有设备连接，处理命令控制与审计。Agent 管理对话、上下文和工具，直接调用问答模型；Inference 为旁路审查提供模型路由与请求调度。业务与审计使用 SQLite，Agent 单独保存会话、运行和文件。
 
