@@ -7,7 +7,7 @@
 
 AuditBox 将设备终端、命令资料、AI 助手和操作审计放在同一个浏览器工作台里。它辅助运维人员操作设备，也帮助管理者防范高危操作，并追溯操作经过。
 
-[项目用途](#项目用途) · [主要功能](#主要功能) · [QuickStart](#quickstart) · [应用场景](#应用场景) · [部署与模型](#部署与模型) · [设计与架构](#设计与架构) · [文档与源码](#文档与源码)
+[项目用途](#项目用途) · [主要功能](#主要功能) · [QuickStart](#quickstart) · [应用场景](#应用场景) · [部署与模型](#部署与模型) · [设计与架构](#设计与架构) · [文档与源码](#文档与源码) · [交流讨论](#交流讨论)
 
 ## 项目用途
 
@@ -144,3 +144,15 @@ auditbox/
 [后端模块](box/README.md) · [Agent 配置与扩展](agent/README.md) · [开发与贡献](CONTRIBUTING.md) · [变更记录](CHANGELOG.md) · [第三方来源与许可](THIRD_PARTY_NOTICES.md)
 
 代码采用 [GPL-3.0-only](LICENSE)，第三方依赖、Skill、模型与素材适用各自的许可。
+
+## 交流讨论
+
+欢迎加入 AuditBox 技术交流 QQ 群，交流部署、设备适配和使用经验。
+
+**QQ群：1105846507**
+
+<a href="docs/images/qq-group.jpg">
+  <img src="docs/images/qq-group.jpg" alt="AuditBox 技术交流群二维码，QQ群号 1105846507" width="300" />
+</a>
+
+问题与功能建议也可以提交到 [GitHub Issues](https://github.com/Motannier/auditbox/issues)。
