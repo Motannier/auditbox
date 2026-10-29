@@ -1,49 +1,18 @@
-# AuditBox 服务器版架构
+# AuditBox 系统架构
 
-Gateway、Proxy、Inference 和 Agent 分别负责网页入口、终端代理、推理路由与智能助手，服务配置由 `deploy/server/install.py` 生成。
+AuditBox 的终端命令与助手操作共用设备连接、命令检查和审计链路，问答与旁路审查各自调用模型服务。首次运行见 [QuickStart](../README.md#quickstart)，安装与维护见 [部署说明](../deploy/server/README.md)。
 
-## 1. 系统与部署边界
+## 服务如何配合
 
-浏览器通过服务器 IP 访问 Gateway，服务器使用现有网络连接目标设备。服务器配置不启用 USB 管理网、热点、板端网络助手、Windows Guardian 或 RK3588/NPU 服务。串口连接取决于宿主机设备和服务账号权限。
+Gateway 提供登录、网页和终端会话；Proxy 持有设备连接，处理命令检查与审计。Agent 管理问答、上下文和工具审批，直接访问问答模型；Inference 为旁路审查提供模型路由与调度。
 
-```mermaid
-flowchart LR
-    User["操作员浏览器"] -->|HTTP / WebSocket :18080| Gateway
-    subgraph Host["Linux x86_64 服务器"]
-        subgraph App["systemd 应用服务"]
-            Gateway["Gateway<br/>认证、Web、终端会话"]
-            Proxy["Proxy<br/>协议代理、命令闸门、审计"]
-            Events["事件通道<br/>与 Proxy 同进程"]
-            Agent["Agent<br/>问答、上下文、审批、工具"]
-            Inference["Inference<br/>模型路由与推理调度"]
-        end
-        subgraph Models["Docker Compose / NVIDIA GPU"]
-            Assistant["Qwen3.5 2B<br/>问答模型"]
-            Review["command-guard<br/>Linux 审查模型"]
-        end
-        DB[("业务与审计 SQLite")]
-        AgentDB[("Agent SQLite / 文件区")]
-        Logs[("JSONL / 服务日志")]
-        Gateway <-->|TCP :19000| Proxy
-        Proxy --> Events
-        Events -->|JSON 行事件 :19001| Gateway
-        Gateway <-->|内部 HTTP / SSE :18765| Agent
-        Agent -->|OpenAI 兼容接口 :18081| Assistant
-        Agent -->|回环内部工具 API| Gateway
-        Proxy -->|旁路审查 :18091| Inference
-        Inference -->|审查 :18082| Review
-        Inference -.->|已配置的 assistant 路由 :18081| Assistant
-        Gateway --> DB
-        Proxy --> DB
-        Proxy --> Logs
-        Agent --> AgentDB
-    end
-    Proxy <-->|SSH / Telnet| Target["目标服务器或网络设备"]
-```
+![AuditBox 架构](images/architecture.svg)
 
-Proxy 的 19001 辅助事件监听器与 19000 代理运行在同一进程中。Agent 默认直接访问 18081 问答端点；Inference 仅对经过它的请求提供互斥、问答优先和抢占调度，模型容器仍共享 GPU。
+浏览器经 Gateway 访问工作台，AuditBox 主机使用现有网络或可用串口连接设备。设备平台决定命令资料和规则；OLT/ONU 的具体型号资料需要额外导入，覆盖范围见 [应用场景](../README.md#应用场景)。串口连接取决于宿主机设备和服务账号权限。
 
-## 2. 端口与进程
+QuickStart 只运行 Gateway 和 Proxy。下文端口表与资源配置以完整的 systemd 部署为准，由 [安装器](../deploy/server/install.py) 生成。
+
+## 端口与访问范围
 
 | systemd 服务或容器 | 地址 | 责任 |
 | --- | --- | --- |
@@ -55,9 +24,13 @@ Proxy 的 19001 辅助事件监听器与 19000 代理运行在同一进程中。
 | `auditbox-linux-audit` 容器 | 宿主机 `127.0.0.1:18082` → 容器 8080 | command-guard、10240 上下文 |
 | `auditbox-server-models` | 无监听端口 | oneshot，依次启动两个模型并等待健康 |
 
-Gateway 的绑定地址由 `AUDITBOX_GATEWAY_HOSTS` 指定。安装器配置回环与指定服务器 IP 双监听，对外开放产品入口，其余进程与模型端口保持回环。Agent API 无独立登录鉴权，浏览器请求须经 Gateway 认证后转发。Gateway 内部工具 API 检查调用方是否来自本机。
+Gateway 的绑定地址由 `AUDITBOX_GATEWAY_HOSTS` 指定。安装器配置回环与指定服务器 IP 双监听，其余进程与模型端口保持回环。Agent API 无独立登录鉴权，浏览器请求须经 Gateway 认证后转发；内部工具 API 检查调用方是否来自本机。
 
-## 3. 人工命令链路
+Proxy 的 19001 事件监听器与 19000 代理运行在同一进程中。Inference 还提供 assistant 路由，但默认 Agent 直接访问 18081；Inference 的互斥、问答优先和抢占调度仅作用于经过它的请求。
+
+## 人工命令怎样检查和记录
+
+命令在 Enter 提交时进入确定性规则检查。确认只对当前命令生效；硬阻断不能通过普通确认解除，未命中规则的命令可能按未知项放行。设备原生的行编辑、补全和分页交互仍由设备 CLI 处理。
 
 ```mermaid
 sequenceDiagram
@@ -88,9 +61,11 @@ sequenceDiagram
         P->>T: 下发命令
     end
     P->>A: 记录输入、决策与执行状态
-    T-->>P: 终端输出
-    P-->>G: 原会话输出
-    G-->>W: 展示输出
+    opt 命令已下发
+        T-->>P: 终端输出
+        P-->>G: 原会话输出
+        G-->>W: 展示输出
+    end
     P->>R: 异步提交历史窗口或规则审查
     R-->>P: 风险建议
     P->>A: 保存审查结果
@@ -98,9 +73,9 @@ sequenceDiagram
     G-->>W: 显示当前与历史风险
 ```
 
-命令闸门根据确定性规则和确认状态决定是否下发。`security/review_result.py` 将旁路审查统一为风险建议，兼容字段 `lock` / `locked` 固定为 false。风险模型只提供建议和审计证据。
+旁路审查异步提供风险建议与审计证据，不改变命令闸门的决定。[review_result.py](../box/auditbox/security/review_result.py) 将兼容字段 `lock` / `locked` 固定为 false。不同平台的规则与模型分工见 [旁路审查说明](../box/auditbox/security/SWITCH_SIDE_REVIEW.md)。
 
-## 4. Agent 执行链路
+## Agent 怎样使用已有终端
 
 ```mermaid
 sequenceDiagram
@@ -143,9 +118,11 @@ sequenceDiagram
 
 执行总开关初始关闭，后续以 SQLite 保存的用户设置为准。批准只对已保存的待审批工具生效；继续请求会校验工具名称和参数，并仅采纳批准或拒绝决定。
 
-终端写入复用 Gateway 已持有的连接，Agent 不持有目标密码，也不另建 SSH 会话。命令命中危险规则时，仍需经过命令闸门的二次确认。只读工具按对应能力的审批策略执行。
+终端写入复用 Gateway 已持有的连接，Agent 不持有目标密码，也不另建 SSH 会话。工具批准后，命令仍经过同一命令闸门：需要确认的命令另行确认，硬阻断命令拒绝下发。终端读取与会话文件读取无需逐次审批；其他工具按相应能力的策略执行。
 
-## 5. 启动与资源
+Agent 当前使用固定本地用户保存会话，不按浏览器登录账号隔离对话和文件。已验证的操作员账号用于关联终端操作审计。审批参数、人工介入和返回状态见 [终端工具设计](../agent/docs/TERMINAL_TOOL_DESIGN.md)。
+
+## 启动顺序与资源
 
 ```mermaid
 flowchart TB
@@ -160,9 +137,13 @@ flowchart TB
     Ready --> Agent["Agent"]
 ```
 
-四个应用进程使用 `auditbox-server` 系统账号，归入独立应用 slice。安装器限制 CPU 和主内存用量，服务无主机网络管理权限。两个模型容器共享 NVIDIA GPU，镜像按摘要固定，模型目录只读挂载，模型 Compose 不向应用挂载 Docker socket。GPU 显存与算力未作硬件隔离。
+systemd 的依赖关系安排启动顺序；应用进程成功启动不代表问答已经可用，仍需检查模型与服务健康端点。模型启动器先等待 Linux 审查模型健康，再启动问答模型。
 
-## 6. 配置与数据
+四个应用进程使用 `auditbox-server` 系统账号，归入独立应用 slice，合计限制为 2 个 CPU 核额度和 2 GiB 主内存。两个模型容器另设 CPU、主内存限制，共享 NVIDIA GPU，显存与算力未作硬件隔离。镜像按摘要固定，模型目录只读挂载，模型 Compose 不向应用挂载 Docker socket。
+
+应用沿用宿主机网络和时间配置，服务器安装器关闭浏览器校时、网口修改及 Guardian 准入，不安装板端网络助手。
+
+## 配置与数据保存在哪里
 
 | 路径 | 内容 | 管理与升级方式 |
 | --- | --- | --- |
@@ -170,15 +151,15 @@ flowchart TB
 | `/opt/auditbox-server/current` | 当前 release 符号链接 | 经验证后切换 |
 | `/opt/auditbox-server/releases/<release>/box/.venv`、`agent/.venv` | 当前 release 的两组独立 Python 环境 | 分别由锁文件安装；随 `current` 一起切换 |
 | `/etc/auditbox-server/auditbox.env` | 环境配置与密钥 | 新环境独立生成，升级保留 |
-| `/etc/auditbox-server/initial-credentials.json` | 首次随机账号凭据 | root 可读，不能入库 |
+| `/etc/auditbox-server/initial-credentials.json` | 首次随机账号凭据 | 仅 root 可读 |
 | `/var/lib/auditbox-server/` | 业务与 Agent SQLite、上传和文件区 | 不随源码复制或重置 |
-| `/var/log/auditbox-server/` | JSONL 和运行日志 | 不进入公开仓库 |
+| `/var/log/auditbox-server/` | JSONL 和运行日志 | 独立保存，按需备份 |
 | `/opt/auditbox-server/models` | 两个 GGUF | 单独准备，按哈希核对 |
 | `/opt/auditbox-server/models-runtime` | 模型 Compose 与镜像配置 | 按环境独立管理 |
 
-业务与审计共用 SQLite，Agent 使用独立数据库。Gateway 将已验证的人工或 Agent 来源关联到审计记录；审计记录与模型回答分别核验。
+业务与审计共用 SQLite，Agent 使用独立数据库。命令下发、审批与实际结果分别记录，缺少可靠退出状态时保留为未知。审计字段、输出摘要和历史格式转换见 [关联审计](linked-audit.md)。
 
-## 7. 代码入口
+## 代码入口
 
 - `box/auditbox/gateway/app.py`：外部 API、WebSocket、活动终端和内部工具桥。
 - `box/auditbox/relay/command_gate.py`：命令恢复、确定性确认与阻断。

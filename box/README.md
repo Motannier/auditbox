@@ -1,6 +1,6 @@
-# AuditBox 服务器后端
+# AuditBox 后端
 
-本模块负责目标连接、命令控制、设备辅助和关联审计，由三个独立进程组成。
+本模块负责连接设备、检查终端命令、提供命令辅助，并记录可追溯的操作过程，由三个独立进程组成。
 服务器安装器将它们安装到同一个 Python 环境；[Agent](../agent/README.md) 使用独立环境。
 
 | 进程 | 启动命令 | 服务器端口与职责 |
@@ -39,14 +39,14 @@
 `make run-proxy` 或 `make run-gateway`。单独启动前先停止组合运行的服务，以免端口冲突。
 
 开发配置将进程绑定到回环地址，Gateway 在 `127.0.0.1:18080` 提供构建后的网页。
-前端开发时可另外启动 Vite。准备好模型后，按 [部署说明](../deploy/server/README.md)
-启用 AI 服务并调整旁路审查配置；需要单独调试 Inference 时，在 `box/` 目录运行：
+前端开发时可另外启动 Vite。准备好模型后，按 [模型说明](../models/README.md)
+配置端点；需要单独调试 Inference 时，在 `box/` 目录运行：
 
 ```bash
 uv run --frozen --python 3.11 auditbox-inference
 ```
 
-Agent 需另行启动。Inference 只调度经过自身的请求；服务器配置中的 Agent 直接访问问答端点。
+AI 问答还需按 [Agent 运行说明](../agent/README.md#运行与开发)单独启动 Agent。启用历史旁路审查时，将 `box/.env` 的 `AUDITBOX_HISTORY_REVIEW_ENABLED` 设为 `true`，并重启 Proxy；QuickStart 默认将其关闭。Inference 只调度经过自身的请求，默认 Agent 直接访问问答端点。
 
 正式安装通过 systemd 的 `EnvironmentFile` 读取 `/etc/auditbox-server/auditbox.env`，
 通过 `PYTHONPATH` 加载源码。各环境独立生成配置文件中的凭据。
