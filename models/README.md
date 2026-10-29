@@ -1,42 +1,66 @@
-# 服务器模型
+# 模型选择与接入
 
-默认部署通过两个本地 llama.cpp CUDA 容器运行问答模型和 Linux 审查模型，文件名和服务别名须与
-[Compose](../deploy/server/models.compose.yaml) 一致。H3C 专用审查模型按需配置。
+AuditBox 将问答与命令风险审查分开配置。完整服务器部署默认运行 Qwen3.5 2B 和 Command Guard 两个本地模型；H3C Risk 按需启用。核心终端、命令规则和审计可独立运行，首次启动见 [QuickStart](../README.md#quickstart)。
 
-| 用途 | 文件 | 服务别名 | 来源 |
-| --- | --- | --- | --- |
-| 标准 / 增强问答 | `Qwen3.5-2B-Q4_K_M.gguf` | `qwen3.5-2b` | Unsloth Hugging Face 仓库，固定 revision |
-| Linux 命令审查 | `command-guard-q8_0.gguf` | `command-guard` | 自有 0.8B 微调制品，GPL-3.0-only，[模型卡](model-cards/command-guard/README.md) |
-| H3C Comware 命令审查（可选） | `h3c-risk-q8_0.gguf` | `h3c-risk` | 自有 0.8B 微调制品，GPL-3.0-only，[模型卡](model-cards/h3c-risk/README.md) |
+| 模型 | 作用 | 默认运行配置 |
+| --- | --- | --- |
+| [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) | 标准／增强问答、Agent 计划与工具调用 | `Qwen3.5-2B-Q4_K_M.gguf`，别名 `qwen3.5-2b`，18081 端口，32K 上下文 |
+| [Command Guard 0.8B](https://huggingface.co/Motanni/auditbox-command-guard-0.8b-gguf) | Linux 近期命令与上下文的旁路风险审查 | `command-guard-q8_0.gguf`，别名 `command-guard`，18082 端口，10,240 上下文 |
+| [H3C Risk 0.8B](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf) | H3C Comware 命令的旁路风险审查 | 可选；`h3c-risk-q8_0.gguf`，别名 `h3c-risk`，单独启动服务 |
 
-[manifest.json](manifest.json) 的 `models` 记录默认部署所需文件，`optional_models` 记录可选 H3C 模型。
-各条目包含来源、固定 revision、文件大小、SHA-256 和许可。
-下载时使用固定 revision，导入前核对大小和哈希。
+问答模型使用 [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) 的 Unsloth Q4_K_M 量化制品，项目未对其微调。两个 0.8B 模型基于 Qwen3.5-0.8B 进行领域微调，以 GGUF Q8_0 提供。问答模型直接服务于 Agent，审查模型经 Inference 路由，链路见 [系统架构](../docs/ARCHITECTURE.md)。
 
-通用问答使用 [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) 的 Unsloth GGUF Q4_K_M 量化制品，可从 [固定版本的文件地址](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf) 获取，沿用上游 Apache 2.0 许可。
-两个 0.8B 模型均为 Qwen3.5-0.8B 领域微调的 GGUF Q8_0 制品，模型卡提供各自用途、
-文件信息、运行示例和使用边界。模型卡与 GPL 许可、上游 Apache 许可及归属说明保存在
-`model-cards/`。Hugging Face 固定版本下载地址：
+模型风险结果用于提示与审计；命令下发前的确认和阻断由应用规则处理。模型卡说明了各自输入要求与适用边界：[Command Guard](model-cards/command-guard/README.md)、[H3C Risk](model-cards/h3c-risk/README.md)。
 
-- [Command Guard 0.8B Q8_0](https://huggingface.co/Motanni/auditbox-command-guard-0.8b-gguf/resolve/28ddd3674df32b623d2cff6f9cb673ec40e1fa07/command-guard-q8_0.gguf)（默认 Linux 命令审查）。
-- [H3C Risk 0.8B Q8_0](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf/resolve/01e2fcf6850661ae4db6e82a19b3611594a89a11/h3c-risk-q8_0.gguf)（可选 H3C Comware 命令审查）。
+## 下载与校验
 
-具体训练运行、数据版本与使用权限、基础模型训练 revision 和转换工具版本尚未完整归档。
-本次发布不提供独立评测结果，未声明准确率、召回率、误报率或吞吐指标。
-
-## 本地校验与导入
-
-将默认部署所需的 Qwen3.5 2B 和 command-guard 文件放入同一目录，再从仓库根目录运行以下命令，替换为实际模型路径：
+在仓库根目录执行以下命令，将 `model_dir` 替换为实际目录。下载使用固定 revision，与 [manifest.json](manifest.json) 中的文件大小和 SHA-256 对应：
 
 ```bash
-python3 tools/check_models.py /path/to/models
+model_dir=/path/to/models
+mkdir -p "$model_dir"
+curl --fail --location \
+  'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf' \
+  --output "$model_dir/Qwen3.5-2B-Q4_K_M.gguf"
+curl --fail --location \
+  'https://huggingface.co/Motanni/auditbox-command-guard-0.8b-gguf/resolve/28ddd3674df32b623d2cff6f9cb673ec40e1fa07/command-guard-q8_0.gguf' \
+  --output "$model_dir/command-guard-q8_0.gguf"
+python3 tools/check_models.py "$model_dir"
 ```
 
-也可执行 `make check-models MODEL_DIR=/path/to/models`。工具使用 Python 标准库依次检查
-文件是否存在、大小和 SHA-256，失败时以非零状态退出。校验过程不加载模型或启动容器。
+`check_models.py` 使用 Python 标准库检查两个默认文件是否存在、大小与哈希是否匹配，失败时以非零状态退出。也可执行 `make check-models MODEL_DIR=/path/to/models`。校验不会加载模型或启动容器，哈希一致不代表模型质量已经评测。
 
-校验通过后，按 [部署说明](../deploy/server/README.md) 导入 `/opt/auditbox-server/models/`。
-哈希仅验证文件一致性；模型输出质量和分发授权须另行核验。
+校验通过后，把同一目录传给 [服务器安装器](../deploy/server/README.md#首次安装) 的 `--models` 参数。默认文件名、容器参数及别名见 [Compose](../deploy/server/models.compose.yaml)。
 
-H3C 模型使用其下载目录中的 `SHA256SUMS` 单独校验，启动方式及需要启用的路由见
-[H3C 模型卡](model-cards/h3c-risk/README.md)。
+## 启用 H3C 审查
+
+H3C Risk 不在默认双模型 Compose 中。先下载[固定版本权重](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf/resolve/01e2fcf6850661ae4db6e82a19b3611594a89a11/h3c-risk-q8_0.gguf)，与模型卡中的文件大小、[SHA256SUMS](model-cards/h3c-risk/SHA256SUMS) 核对，再按 [模型卡](model-cards/h3c-risk/README.md#本地运行)启动独立服务。默认文件校验工具只检查 `manifest.json` 的 `models`，不检查 `optional_models`。
+
+已有完整服务器部署时，在 `/etc/auditbox-server/auditbox.env` 设置：
+
+```dotenv
+AUDITBOX_INFERENCE_PROFILES=linux,h3c_comware
+AUDITBOX_H3C_BACKEND_URL=http://127.0.0.1:8083
+AUDITBOX_H3C_LLM_MODEL=h3c-risk
+AUDITBOX_HISTORY_REVIEW_ENABLED=true
+```
+
+确认 H3C 服务健康后，重启读取路由配置的两个进程，并重新连接对应终端：
+
+```bash
+sudo systemctl restart auditbox-server-{proxy,inference}
+```
+
+H3C 模型的生命周期由部署者单独管理，不随默认 models 服务启动。设备连接选择 `h3c_comware` 平台后，近期历史审查才会使用对应路由；其他品牌仍使用各自规则或模型。
+
+## 替换问答端点
+
+Agent 可使用本地 llama.cpp、Ollama 或其他 OpenAI 兼容端点。需要同步核对模型名、端点、聊天模板、工具调用支持与上下文预算，配置入口见 [Agent 运行说明](../agent/README.md#运行与开发)。已有服务器保留旧模型配置，更换文件与服务别名时按 [部署说明](../deploy/server/README.md#更换模型)调整。
+
+标准与增强模式共用问答模型，通过 `enable_thinking` 参数区分。外部端点会收到请求携带的对话、设备背景和文件摘录，使用前确认数据可发送范围。
+
+## 来源、许可与已知限制
+
+Qwen3.5 2B 沿用上游 Apache 2.0 许可。两个 0.8B 微调制品采用 GPL-3.0-only，并在各自模型卡目录保留基础模型的 Apache 2.0 许可和归属说明。详细来源见 [第三方记录](../THIRD_PARTY_NOTICES.md)。
+
+训练运行、数据版本与使用权限、基础模型训练 revision 和转换工具版本尚未完整归档。当前没有与这些制品哈希绑定的独立评测结果，未提供准确率、召回率、误报率或吞吐指标。

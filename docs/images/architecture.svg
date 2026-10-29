@@ -1,79 +1,100 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="560" height="700" viewBox="0 0 560 700" role="img" aria-labelledby="title description">
-  <title id="title">AuditBox 架构</title>
-  <desc id="description">浏览器通过 Gateway 访问 Agent 和 Proxy。Agent 直接调用问答模型，终端工具经 Gateway 复用 Proxy 连接。Proxy 的旁路审查通过 Inference 调用 Linux 审查模型。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="1520" viewBox="0 0 1060 1520" role="img" aria-labelledby="title description">
+  <title id="title">AuditBox 详细系统架构</title>
+  <desc id="description">浏览器经 Gateway 访问工作台。Agent 管理问答、上下文与工具审批，直接调用 Qwen3.5 2B；终端工具经 Gateway 复用 Proxy 连接。Proxy 负责 Enter 命令检查、SSH、Telnet、串口代理与辅助事件。Linux 旁路审查经 Inference 调用 Command Guard，H3C Risk 单独配置；华为、思科和中兴使用规则旁路审查。业务审计、Agent 状态及设备资料分别保存。目标设备通过宿主机网络或可用串口接入。</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#7c8fa8"/>
-    </marker>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#6c7e93"/></marker>
     <style>
-      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
-      .title { font-size: 20px; font-weight: 650; fill: #172b46; text-anchor: middle; }
-      .subtitle { font-size: 14px; fill: #4b6078; text-anchor: middle; }
-      .label { font-size: 13px; fill: #60758d; text-anchor: middle; }
-      .line { fill: none; stroke: #7c8fa8; stroke-width: 1.6; stroke-linejoin: round; }
-      .card { stroke-width: 1.2; }
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; fill: #20334a; }
+      .heading { font-size: 22px; font-weight: 650; }
+      .subheading { font-size: 19px; font-weight: 600; }
+      .body { font-size: 17px; fill: #4c6178; }
+      .note { font-size: 16px; fill: #62768c; }
+      .link { fill: none; stroke: #6c7e93; stroke-width: 1.8; stroke-linejoin: round; }
     </style>
   </defs>
-
-  <rect width="560" height="700" rx="20" fill="#ffffff"/>
-  <rect x="16" y="110" width="528" height="574" rx="18" fill="#f8fafc" stroke="#dce5ef"/>
-  <text x="36" y="137" font-size="13" font-weight="600" fill="#64758b">AuditBox</text>
-
-  <g class="line">
-    <path d="M 280 82 V 158" marker-end="url(#arrow)"/>
-    <path d="M 224 226 V 264 H 144 V 300" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <path d="M 336 226 V 264 H 416 V 300" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <path d="M 144 368 V 588" marker-end="url(#arrow)"/>
-    <path d="M 416 368 V 444" marker-end="url(#arrow)"/>
-    <path d="M 416 512 V 588" marker-end="url(#arrow)"/>
-  </g>
-
-  <text class="label" x="326" y="121">统一入口</text>
-  <text class="label" x="173" y="252">对话 · 终端</text>
-  <text class="label" x="380" y="252">终端会话</text>
-  <text class="label" x="188" y="483">直接调用</text>
-  <text class="label" x="460" y="411">旁路审查</text>
-  <text class="label" x="460" y="555">模型调用</text>
-
-  <g>
-    <rect class="card" x="178" y="26" width="204" height="56" rx="12" fill="#ffffff" stroke="#cbd6e2"/>
-    <text class="title" x="280" y="51" font-size="18">浏览器工作台</text>
-    <text class="subtitle" x="280" y="71">终端 · 助手 · 审计</text>
-  </g>
-
-  <g>
-    <rect class="card" x="168" y="158" width="224" height="68" rx="12" fill="#edf4ff" stroke="#a7c5ed"/>
-    <text class="title" x="280" y="186">Gateway</text>
-    <text class="subtitle" x="280" y="209">认证 · 接口 · 会话</text>
-  </g>
-
-  <g>
-    <rect class="card" x="40" y="300" width="208" height="68" rx="12" fill="#f3f0ff" stroke="#c7b8eb"/>
-    <text class="title" x="144" y="328">Agent</text>
-    <text class="subtitle" x="144" y="351">问答 · 上下文 · 审批</text>
-  </g>
-
-  <g>
-    <rect class="card" x="312" y="300" width="208" height="68" rx="12" fill="#edf8f5" stroke="#9bcdbf"/>
-    <text class="title" x="416" y="328">Proxy</text>
-    <text class="subtitle" x="416" y="351">设备连接 · 命令控制</text>
-  </g>
-
-  <g>
-    <rect class="card" x="40" y="588" width="208" height="68" rx="12" fill="#fff8eb" stroke="#e4c58f"/>
-    <text class="title" x="144" y="616" style="font-size:18px">Qwen3.5 2B</text>
-    <text class="subtitle" x="144" y="639">问答模型</text>
-  </g>
-
-  <g>
-    <rect class="card" x="312" y="444" width="208" height="68" rx="12" fill="#edf8f5" stroke="#9bcdbf"/>
-    <text class="title" x="416" y="472">Inference</text>
-    <text class="subtitle" x="416" y="495">路由与请求调度</text>
-  </g>
-
-  <g>
-    <rect class="card" x="312" y="588" width="208" height="68" rx="12" fill="#fff8eb" stroke="#e4c58f"/>
-    <text class="title" x="416" y="616" style="font-size:17px">command-guard</text>
-    <text class="subtitle" x="416" y="639">Linux 审查模型</text>
-  </g>
+  <rect width="1060" height="1520" rx="18" fill="#ffffff"/>
+  <text x="36" y="44" class="heading">AuditBox · 系统架构</text>
+  <text x="36" y="74" class="body">浏览器工作台、共享终端、AI 助手、命令防护与关联审计</text>
+  <rect x="180" y="98" width="700" height="92" rx="12" fill="#f6f9ff" stroke="#b5cce9" stroke-width="1.3"/>
+  <text x="530" y="134" class="heading" text-anchor="middle">浏览器工作台 · React / xterm</text>
+  <text x="530" y="165" class="body" text-anchor="middle">设备管理 · 多标签终端 · 命令辅助 · AI 对话 · 审计</text>
+  <rect x="20" y="224" width="1020" height="1104" rx="18" fill="#f8fafc" stroke="#cbd7e4" stroke-width="1.3"/>
+  <text x="42" y="252" class="subheading">AuditBox 主机 · Linux x86_64 / systemd</text>
+  <path class="link" d="M 530 190 V 276" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="551" y="211" class="note">HTTP / WebSocket / SSE</text>
+  <rect x="72" y="276" width="916" height="104" rx="12" fill="#eaf2ff" stroke="#a6c3e9" stroke-width="1.3"/>
+  <text x="94" y="309" class="heading">Gateway · :18080</text>
+  <text x="94" y="340" class="body">登录与角色权限 · REST API · WebSocket 终端 · Agent HTTP / SSE 转发</text>
+  <text x="94" y="364" class="note">设备管理 · 会话建立 · 审计查询与导出</text>
+  <path class="link" d="M 287 380 V 460" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <path class="link" d="M 773 380 V 460" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="302" y="427" class="note">问答 / 工具审批 / 终端工具桥</text>
+  <text x="788" y="427" class="note">终端 / 辅助事件</text>
+  <rect x="72" y="460" width="430" height="292" rx="12" fill="#f4f1fc" stroke="#c8bbe8" stroke-width="1.3"/>
+  <text x="94" y="493" class="heading">Agent · :18765</text>
+  <rect x="90" y="512" width="394" height="86" rx="8" fill="#ffffff" stroke="#d9d1eb" stroke-width="1.3"/>
+  <text x="108" y="540" class="subheading">问答与上下文</text>
+  <text x="108" y="569" class="body">标准 / 增强 · 历史压缩 · 对话文件</text>
+  <rect x="90" y="612" width="394" height="74" rx="8" fill="#ffffff" stroke="#d9d1eb" stroke-width="1.3"/>
+  <text x="108" y="640" class="subheading">工具与逐次审批</text>
+  <text x="108" y="667" class="body">共享终端 · MCP · Skill · 可选工具</text>
+  <text x="94" y="718" class="note">执行初始关闭 · 会话与运行状态持久化</text>
+  <rect x="558" y="460" width="430" height="292" rx="12" fill="#edf8f5" stroke="#a3cebf" stroke-width="1.3"/>
+  <text x="580" y="493" class="heading">Proxy · :19000</text>
+  <rect x="576" y="512" width="394" height="74" rx="8" fill="#ffffff" stroke="#bcdccd" stroke-width="1.3"/>
+  <text x="594" y="540" class="subheading">确定性命令闸门</text>
+  <text x="594" y="567" class="body">恢复 Enter 命令 → 放行 / 确认 / 阻断</text>
+  <rect x="576" y="600" width="394" height="56" rx="8" fill="#ffffff" stroke="#bcdccd" stroke-width="1.3"/>
+  <text x="594" y="634" class="body">SSH / Telnet / Serial · 已有终端连接</text>
+  <rect x="576" y="668" width="394" height="56" rx="8" fill="#ffffff" stroke="#bcdccd" stroke-width="1.3"/>
+  <text x="594" y="692" class="body">辅助事件 :19001 · 与 Proxy 同进程</text>
+  <text x="594" y="714" class="note">补全 · 速查 · 推荐 · 风险结果</text>
+  <path class="link" d="M 988 628 H 1016 V 1425 H 880" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="107" y="820" class="note">直接问答 · OpenAI 兼容接口</text>
+  <text x="629" y="820" class="note">Linux / H3C 模型旁路审查</text>
+  <rect x="72" y="842" width="916" height="264" rx="12" fill="#fffdf8" stroke="#e6d7b5" stroke-width="1.3"/>
+  <text x="94" y="869" class="subheading">本地模型与推理路由</text>
+  <path class="link" d="M 287 752 V 794 H 60 V 974 H 90" marker-end="url(#arrow)"/>
+  <path class="link" d="M 773 752 V 794 H 527 V 884" marker-end="url(#arrow)"/>
+  <rect x="90" y="884" width="280" height="182" rx="12" fill="#fff4de" stroke="#dfc58e" stroke-width="1.3"/>
+  <text x="110" y="920" class="heading">Qwen3.5 2B</text>
+  <text x="110" y="951" class="body">Q4_K_M · :18081</text>
+  <text x="110" y="984" class="body">标准 / 增强问答</text>
+  <text x="110" y="1014" class="body">Agent 计划与工具调用</text>
+  <text x="110" y="1045" class="note">32K 运行上下文</text>
+  <rect x="402" y="884" width="250" height="182" rx="12" fill="#eef4fb" stroke="#b8cce3" stroke-width="1.3"/>
+  <text x="422" y="920" class="subheading">Inference · :18091</text>
+  <text x="422" y="953" class="body">设备平台路由</text>
+  <text x="422" y="983" class="body">请求排队与调度</text>
+  <text x="422" y="1016" class="note">仅调度经过自身的请求</text>
+  <path class="link" d="M 652 926 H 690" marker-end="url(#arrow)"/>
+  <path class="link" d="M 652 1024 H 690" marker-end="url(#arrow)" stroke-dasharray="6 4"/>
+  <rect x="690" y="884" width="280" height="82" rx="12" fill="#fff4de" stroke="#dfc58e" stroke-width="1.3"/>
+  <text x="710" y="916" class="subheading">Command Guard 0.8B</text>
+  <text x="710" y="947" class="body">Q8_0 · Linux · :18082</text>
+  <rect x="690" y="984" width="280" height="82" rx="12" fill="#fffaf0" stroke="#dfc58e" stroke-width="1.3" stroke-dasharray="6 4"/>
+  <text x="710" y="1016" class="subheading">H3C Risk 0.8B（可选）</text>
+  <text x="710" y="1047" class="body">Q8_0 · H3C · 独立服务</text>
+  <text x="94" y="1091" class="note">默认两个 llama.cpp CUDA 容器；H3C 模型需单独配置。</text>
+  <rect x="72" y="1148" width="916" height="152" rx="12" fill="#f3f6fa" stroke="#cbd7e4" stroke-width="1.3"/>
+  <text x="94" y="1177" class="subheading">持久化与设备资料</text>
+  <rect x="90" y="1190" width="284" height="92" rx="8" fill="#ffffff" stroke="#d4dfea" stroke-width="1.3"/>
+  <text x="106" y="1219" class="subheading">业务与审计 · Gateway / Proxy</text>
+  <text x="106" y="1245" class="note">SQLite · 登录 / 命令 / 行为</text>
+  <text x="106" y="1268" class="note">脱敏输出摘要 · JSONL 兼容记录</text>
+  <rect x="390" y="1190" width="284" height="92" rx="8" fill="#ffffff" stroke="#d4dfea" stroke-width="1.3"/>
+  <text x="406" y="1219" class="subheading">Agent 状态与文件</text>
+  <text x="406" y="1245" class="note">SQLite · 对话 / Run / 审批</text>
+  <text x="406" y="1268" class="note">对话文件 · Skill · 工作区</text>
+  <rect x="690" y="1190" width="280" height="92" rx="8" fill="#ffffff" stroke="#d4dfea" stroke-width="1.3"/>
+  <text x="706" y="1219" class="subheading">设备资料与能力包</text>
+  <text x="706" y="1245" class="note">补全 · 速查 · 推荐 · 风险规则</text>
+  <text x="706" y="1268" class="note">按平台加载 · OLT/ONU 包导入</text>
+  <text x="72" y="1132" class="note">旁路结果用于提示与审计；华为 / 思科 / 中兴在 Proxy 内使用规则审查。</text>
+  <text x="42" y="1318" class="note">除 Gateway 浏览器入口外，内部服务与模型保持回环监听。</text>
+  <rect x="180" y="1380" width="700" height="90" rx="12" fill="#f6f8fa" stroke="#b7c5d4" stroke-width="1.3"/>
+  <text x="530" y="1417" class="heading" text-anchor="middle">目标设备 · 宿主机现有网络 / 可用串口</text>
+  <text x="530" y="1447" class="body" text-anchor="middle">Linux · 交换机 · OLT/ONU（匹配型号的资料需导入）</text>
+  <text x="766" y="1359" class="note">SSH / Telnet / Serial</text>
+  <text x="36" y="1501" class="note">实线：默认请求或终端链路    虚线：可选模型路由    工具批准后，命令仍受确认与硬阻断规则约束</text>
 </svg>

@@ -77,9 +77,16 @@ curl --fail http://127.0.0.1:8083/v1/chat/completions \
 示例请求只生成分析文本。接入结构化审查时，须在系统提示中约定输出字段，检查 JSON 格式、风险枚举、
 命令序号及证据是否有效；解析失败或缺少判断依据时，应用应记录为未判定。
 
-AuditBox 服务器默认只启用 Linux 审查模型。使用此模型时，需另行启动 H3C 服务，配置
-`AUDITBOX_H3C_BACKEND_URL`，并将 `h3c_comware` 加入 `AUDITBOX_INFERENCE_PROFILES`。
-本模型的适用范围为 H3C Comware；其他品牌使用各自的规则或模型。
+AuditBox 服务器默认只启用 Linux 模型路由。另行启动 H3C 服务后，在 Proxy 和 Inference 使用的环境配置中设置：
+
+```dotenv
+AUDITBOX_INFERENCE_PROFILES=linux,h3c_comware
+AUDITBOX_H3C_BACKEND_URL=http://127.0.0.1:8083
+AUDITBOX_H3C_LLM_MODEL=h3c-risk
+AUDITBOX_HISTORY_REVIEW_ENABLED=true
+```
+
+重启 Proxy、Inference 并重新连接 H3C 终端。模型服务需要单独管理，不随默认双模型服务启动。本模型适用于 H3C Comware；其他品牌使用各自的规则或模型。
 
 ## 微调、转换与评估记录
 
