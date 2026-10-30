@@ -35,7 +35,7 @@ H3C Risk 是面向 H3C Comware 命令风险分析的 0.8B 级领域微调模型�
 | 文本张量参数量 | 752,393,024；按 GGUF 张量维度统计 |
 | 推荐接口 | 支持 `qwen35` 的 llama.cpp / OpenAI 兼容 Chat Completions |
 
-文件哈希记录在 [SHA256SUMS](SHA256SUMS)。该制品提供文本推理权重，使用前核对文件大小和哈希。
+文件哈希记录在 [SHA256SUMS](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf/blob/main/SHA256SUMS)。该制品提供文本推理权重，使用前核对文件大小和哈希。
 
 ## 适用场景
 
@@ -105,6 +105,6 @@ GGUF 写入的上下文长度为 262,144；运行示例采用 2,048，本发布�
 
 ## 许可证与来源
 
-本微调制品及模型卡采用 GNU GPL 第 3 版，仅限该版本（`GPL-3.0-only`），完整条款见 [LICENSE](LICENSE)。
-基础模型的 Apache 2.0 许可证及 Alibaba Cloud 版权声明保留在 [BASE_MODEL_LICENSE](BASE_MODEL_LICENSE)，
-修改与归属说明见 [NOTICE](NOTICE)。训练资料的来源、使用权限及其与本权重的对应关系仍需补齐。
+本微调制品及模型卡采用 GNU GPL 第 3 版，仅限该版本（`GPL-3.0-only`），完整条款见 [LICENSE](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf/blob/main/LICENSE)。
+基础模型的 Apache 2.0 许可证及 Alibaba Cloud 版权声明保留在 [BASE_MODEL_LICENSE](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf/blob/main/BASE_MODEL_LICENSE)，
+修改与归属说明见 [NOTICE](https://huggingface.co/Motanni/auditbox-h3c-risk-0.8b-gguf/blob/main/NOTICE)。训练资料的来源、使用权限及其与本权重的对应关系仍需补齐。
