@@ -132,7 +132,8 @@ class CommandGateTest(unittest.TestCase):
         self.assertEqual(audit.commands, [])
 
         self.assertTrue(gate.cancel_confirmation(token))
-        self.assertEqual(bytes(target), target_before_blocked_input + b"\x05\x15\x03")
+        self.assertEqual(bytes(target), target_before_blocked_input + b"\x05\x15\x03\x01\x05")
+        _redraw(gate, "")
         gate.feed(b"echo safe\r")
         self.assertEqual(audit.commands, ["echo safe"])
 
@@ -183,7 +184,7 @@ class CommandGateTest(unittest.TestCase):
         self.assertEqual(audit.confirmations[0][0], "shutdown")
         self.assertEqual(audit.confirmations[0][1]["reason"], "关闭当前接口或协议功能")
         self.assertTrue(gate.cancel_confirmation(audit.confirmations[0][2]))
-        self.assertEqual(bytes(target), b"shutdown\x05\x18\x03")
+        self.assertEqual(bytes(target), b"shutdown\x05\x18\x03\x12")
 
     def test_sudo_is_not_blanket_blocked(self):
         audit = FakeAudit()
