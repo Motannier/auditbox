@@ -128,8 +128,11 @@ class PredictionEngine:
                 return False
             self._subscribers[session_id].append(sock)
             payload = self._review_payload_locked(session_id)
+            state = self._sessions[session_id].get("terminal_state")
         try:
             sock.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode())
+            if state:
+                sock.sendall((json.dumps(state) + "\n").encode())
         except OSError:
             self.remove_subscriber(session_id, sock)
             return False
@@ -222,6 +225,19 @@ class PredictionEngine:
                 with self._lock:
                     current = self._subscribers.get(session_id, [])
                     self._subscribers[session_id] = [s for s in current if s not in dead]
+
+    def on_terminal_state(self, session_id: str, state: dict) -> None:
+        payload = {"type": "terminal_state", "mode": state["mode"], "version": state["version"]}
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                return
+            previous = session.get("terminal_state")
+            if previous and previous["version"] >= payload["version"]:
+                return
+            session["terminal_state"] = payload
+            subs = list(self._subscribers.get(session_id, []))
+        self._push_payload(session_id, payload, subs)
 
     def on_command(
         self,

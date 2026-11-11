@@ -232,6 +232,7 @@ class TelnetProxy:
             client_send=client_sock.sendall,
             device_profile=self._device_profile,
             input_framing=self._input_framing,
+            require_command_prompt=self._input_framing,
         )
         if self._on_confirmation_ready:
             self._on_confirmation_ready(command_gate.confirm, command_gate.cancel_confirmation)
@@ -275,7 +276,7 @@ class TelnetProxy:
                 except OSError:
                     break
                 command_gate.feed_output(output)
-                if auto_login.feed(output) == "password":
+                if auto_login.feed(output) in {"username", "password"}:
                     command_gate.mark_sensitive_input_complete()
 
                 # 收集服务端初始输出（同样剥离 IAC），首次换行后触发设备类型检测

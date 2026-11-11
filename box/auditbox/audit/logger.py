@@ -42,7 +42,7 @@ class AuditLogger:
                  account: str = "未登录",
                  command_hook=None, security_hook=None,
                  command_result_hook=None, login_id="", device_id="",
-                 device_name="", device_profile=""):
+                 device_name="", device_profile="", terminal_state_hook=None):
         self.session_id   = session_id
         self.target       = target
         self.protocol     = protocol
@@ -54,6 +54,8 @@ class AuditLogger:
         self._command_hook = command_hook   # callable(cmd: str, metadata: dict) | None
         self._security_hook = security_hook # callable(cmd: str, alert: dict, blocked: bool) | None
         self._command_result_hook = command_result_hook
+        self._terminal_state_hook = terminal_state_hook
+        self._terminal_mode = "unknown"
         self._command_repo = CommandAuditRepository()
         self._store = safe_audit(AuditStore)
         self._context = {"login_id": login_id or None, "session_id": session_id,
@@ -81,6 +83,12 @@ class AuditLogger:
     @_synchronized
     def set_input_context(self, context):
         self._input_context = dict(context)
+
+    def log_terminal_state(self, state):
+        # State messages contain no terminal text or credentials.
+        self._terminal_mode = state.get("mode", "unknown")
+        if self._terminal_state_hook:
+            self._terminal_state_hook(dict(state))
 
     @_synchronized
     def _business_command(self, command, source, status, *, authorized=False):
