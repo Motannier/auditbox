@@ -106,11 +106,10 @@ class CommandGate:
             raise ValueError("Invalid terminal input source")
         with self._lock:
             if self._pending_confirmation or self._line_read:
-                self._log_terminal_input(data, forwarded=False)
-                # A cancelled line is never submitted to obtain a fresh prompt.
-                # Ctrl+C remains available if the device has not reprompted yet.
-                if self._line_read and self._line_read.purpose == "clear" and data == b"\x03":
-                    self._target_send(data)
+                recovering = bool(self._line_read and self._line_read.purpose == "clear" and data == b"\x03")
+                self._log_terminal_input(data, forwarded=recovering)
+                if recovering:
+                    self._recover_remote_line(source=self._line_read.source)
                 return
             self._log_terminal_input(data, sensitive=self._sensitive_input)
             i = 0
@@ -258,23 +257,29 @@ class CommandGate:
             pending = self._pending_confirmation
             if not pending or not secrets.compare_digest(pending[0], confirmation_id):
                 return False
-            _, command, separator, source = pending
+            _, command, _, source = pending
             self._pending_confirmation = None
-            self._line_read = None
-            self._input_buf.clear()
-            self._used_history_nav = False
-            self._requires_remote_line = False
-            verify_clear = self._confirmation_from_echo or self._line_sync.command is not None
             self._confirmation_from_echo = False
-            self._line_sync.reset()
             self._audit_event("log_confirmation_result", command, False, source=source)
             self._notify("\r\n\x1b[33m[安全审查] 高风险操作已取消\x1b[0m\r\n")
-            if verify_clear:
-                self._line_read = _LineRead("clear", b"", source, time.monotonic())
-            # End makes the clear-to-left operation independent of cursor
-            # position. Ctrl+C reprompts; critically, there is NO Enter here.
-            self._target_send(b"\x05" + self._line_clear_sequence + b"\x03")
+            self._recover_remote_line(source=source)
             return True
+
+    def _recover_remote_line(self, *, source: str, retried: bool = False) -> None:
+        self._finish_sensitive_input()
+        self._line_read = _LineRead("clear", b"", source, time.monotonic(), notified=retried)
+        self._record_recovery("retry" if retried else "started")
+        # Never send Enter to recover: the device may still hold the cancelled command.
+        self._target_send(b"\x05" + self._line_clear_sequence + b"\x03"
+                          + (self._line_redraw_sequence or b"\x01\x05"))
+
+    def _record_recovery(self, status: str) -> None:
+        details = {"status": status, "device_profile": self._device_profile}
+        callback = getattr(self._audit, "log_operation", None)
+        if callback:
+            callback("security_terminal_input_recovery_" + status, details)
+        if status == "failed":
+            log.warning("[%s] 终端输入恢复失败，结束当前连接", self._audit.session_id)
 
     def mark_sensitive_input_complete(self) -> None:
         """Clear password-prompt state after credentials were supplied out of band."""
@@ -418,12 +423,13 @@ class CommandGate:
             now = time.monotonic()
             command = self._line_sync.command
             ready = (read.output_at is not None
-                     and (not self._line_redraw_sequence or self._line_sync.redrawn)
+                     and (read.purpose == "clear" or not self._line_redraw_sequence or self._line_sync.redrawn)
                      and command is not None and now - read.output_at >= _SNAPSHOT_SETTLE)
             if ready and read.purpose == "clear":
                 if not command:
                     self._line_read = None
-                    self._line_sync.reset()
+                    self._finish_sensitive_input()
+                    self._record_recovery("succeeded")
                     return
             elif ready:
                 self._line_read = None
@@ -458,11 +464,16 @@ class CommandGate:
                         else:
                             self._notify("\r\n\x1b[33m[安全审查] 待提交命令已清空，本次授权已取消\x1b[0m\r\n")
                 return
-            if now - read.started >= _SNAPSHOT_TIMEOUT and not read.notified:
-                read.notified = True
+            if now - read.started >= _SNAPSHOT_TIMEOUT:
                 if read.purpose == "clear":
-                    self._notify("\r\n\x1b[33m[安全审查] 正在等待设备清空输入；可按 Ctrl+C 恢复提示符\x1b[0m\r\n")
+                    if read.notified:
+                        self._record_recovery("failed")
+                        self._notify("\r\n\x1b[31m[安全审查] 终端输入恢复失败，已结束当前连接；请点击终端标签旁的重新连接，无需刷新页面。\x1b[0m\r\n")
+                        raise ConnectionError("终端输入恢复失败")
+                    self._notify("\r\n\x1b[33m[安全审查] 尚未确认输入已清空，正在重新清行；可按 Ctrl+C 重试。\x1b[0m\r\n")
+                    self._recover_remote_line(source=read.source, retried=True)
                     return
+                read.notified = True
                 self._line_read = None
                 if read.purpose == "confirm" and self._pending_confirmation:
                     _, approved, _, source = self._pending_confirmation

@@ -182,6 +182,7 @@ try {
   let routedSocketCloseCount = 0;
   let confirmedDangerExecutionCount = 0;
   let cancelledDangerCount = 0;
+  let disconnectAfterCancellation = false;
   let dangerConfirmationSequence = 0;
   const pendingDangerCommands = new Map();
   const submittedCommands = [];
@@ -599,6 +600,11 @@ try {
         } else if (control.type === "command_confirmation_cancel" && command) {
           cancelledDangerCount += 1;
           pendingDangerCommands.delete(control.confirmation_id);
+          if (disconnectAfterCancellation) {
+            ws.send("\r\n[安全审查] 终端输入恢复失败，已结束当前连接；请点击终端标签旁的重新连接，无需刷新页面。\r\n");
+            ws.close({ code: 1000, reason: "input recovery failed" });
+            return;
+          }
           ws.send(`\r\n[${DEFAULT_PRODUCT_NAME}] 已取消高危命令\r\n# `);
         }
         return;
@@ -1834,6 +1840,10 @@ try {
   if (confirmedDangerExecutionCount !== 1 || lastExecutedCommand !== "sudo reboot") {
     throw new Error("Confirmed danger command did not execute exactly once");
   }
+  await page.waitForFunction(() => {
+    const cursor = document.querySelector(".terminal-session.active .xterm-cursor");
+    return cursor?.closest(".xterm-rows > div")?.textContent.replace(/\u00a0/g, " ").trimEnd().endsWith("#");
+  });
 
   await page.evaluate(() => document.querySelector(".terminal-session.active .xterm-helper-textarea")?.focus());
   await page.keyboard.type("rm -rf");
@@ -1999,6 +2009,36 @@ try {
     throw new Error(`Bottom-edge suggestions were clipped or covered the command: ${JSON.stringify(bottomSuggestionLayout)}`);
   }
   await page.keyboard.press("Escape");
+
+  disconnectAfterCancellation = true;
+  const tabsBeforeRecovery = await page.locator(".session-tab").count();
+  await page.evaluate(() => {
+    window.__cancelRecoverySentinel = "same-page";
+    document.querySelector(".terminal-session.active .xterm-helper-textarea")?.focus();
+  });
+  await page.keyboard.press("Control+U");
+  await page.keyboard.type("rm -rf *");
+  await page.keyboard.press("Enter");
+  await page.getByRole("dialog", { name: "高危操作确认" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("dialog", { name: "高危操作确认" }).getByRole("button", { name: "取消操作", exact: true }).click();
+  await page.locator(".terminal-reconnect").getByRole("button", { name: "重新连接", exact: true }).waitFor();
+  await page.getByRole("dialog", { name: "高危操作确认" }).waitFor({ state: "detached" });
+  if (process.env.WEBUI_TEST_RECOVERY_SCREENSHOT) {
+    await page.screenshot({ path: process.env.WEBUI_TEST_RECOVERY_SCREENSHOT, fullPage: true });
+  }
+  await page.locator(".session-tab.active .session-tab-refresh").click();
+  await page.locator(".session-tab.active .session-status-dot.connected").waitFor();
+  await page.evaluate(() => document.querySelector(".terminal-session.active .xterm-helper-textarea")?.focus());
+  await page.keyboard.type("recovery-check");
+  await page.keyboard.press("Enter");
+  const recoveryDeadline = Date.now() + 3_000;
+  while (lastExecutedCommand !== "recovery-check" && Date.now() < recoveryDeadline) await delay(25);
+  if (
+    lastExecutedCommand !== "recovery-check" ||
+    await page.evaluate(() => window.__cancelRecoverySentinel) !== "same-page" ||
+    await page.locator(".session-tab").count() !== tabsBeforeRecovery
+  ) throw new Error("Cancelled input recovery required a page reload or lost terminal tabs");
+  if (pageErrors.length) throw new Error(`Page errors during recovery: ${pageErrors.join("\n")}`);
 
   await checkClientDeviceFlow(browser, url);
 } finally {

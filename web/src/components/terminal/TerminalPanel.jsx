@@ -1205,6 +1205,8 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   }
 
   function reportConnectionFailure(message, code = "connection_failed") {
+    pendingConfirmationRef.current = null;
+    setPendingConfirmation(null);
     connectionFailureRef.current = { message, code };
     recommendationSuggestionsRef.current = [];
     clearCommandSuggestions();

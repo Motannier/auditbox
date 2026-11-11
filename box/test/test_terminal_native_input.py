@@ -180,14 +180,14 @@ def test_cancel_never_sends_enter_and_waits_until_device_input_is_empty():
     gate.feed(b"shut\t\r")
     redraw(gate, "shutdown")
     assert gate.cancel_confirmation(audit.confirmations[-1][2])
-    assert bytes(sent).endswith(b"\x05\x18\x03") and b"\r" not in sent
+    assert bytes(sent).endswith(b"\x05\x18\x03\x12") and b"\r" not in sent
     # Simulate a device which ignored the clear key: it must not receive Enter.
     redraw(gate, "shutdown")
     before = bytes(sent)
     gate.feed(b"\r")
     assert bytes(sent) == before
     gate.feed(b"\x03")
-    assert bytes(sent).endswith(b"\x03")
+    assert bytes(sent).endswith(b"\x05\x18\x03\x12")
     redraw(gate, "")
     gate.feed(b"display version\r")
     assert audit.commands == ["display version"]
