@@ -152,6 +152,10 @@ class CommandGate:
                 if byte in (b"\x03", b"\x15", b"\x18"):
                     self._input_source = source
                 if byte == b"\x03":
+                    if self._input_buf and not self._sensitive_input:
+                        callback = getattr(self._audit, "log_operation", None)
+                        if callback:
+                            callback("terminal_input_cancelled", {"command": self._line_sync.command or self._input_buf.decode("utf-8", errors="replace")})
                     self._input_buf.clear()
                     self._requires_remote_line = False
                     self._used_history_nav = False

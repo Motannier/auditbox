@@ -5,5 +5,9 @@ import "./styles/index.css";
 import { App } from "./App.jsx";
 import { loadBranding } from "./constants/branding.js";
 import { loadDeviceProfiles } from "./lib/deviceProfiles.js";
+import { installUserAudit } from "./lib/userAudit.js";
+import { API_BASE_URL } from "./services/http.js";
+
+installUserAudit(API_BASE_URL);
 
 Promise.all([loadBranding(), loadDeviceProfiles()]).then(() => createRoot(document.getElementById("root")).render(<App />));

@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { ClipboardPaste, Copy, RefreshCw, Square } from "lucide-react";
 import { fetchCommandSuggestions } from "../../services/commandService.js";
+import { recordUserAction } from "../../lib/userAudit.js";
 import { terminalTheme } from "../../config/terminalTheme.js";
 import { connectionEndpointLabel, protocolDisplayName } from "../../lib/connection.js";
 import { advisoryReview, staleReviewUpdate } from "../../lib/operationReview.js";
@@ -66,6 +67,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   const termRef = useRef(null);
   const fitAddonRef = useRef(null);
   const socketRef = useRef(null);
+  const auditSessionIdRef = useRef("");
   const connectionFailureRef = useRef(null);
   const targetRef = useRef(target);
   const onStatusChangeRef = useRef(onStatusChange);
@@ -294,6 +296,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     const text = termRef.current?.getSelection();
     setClipboardMenu(null);
     if (!text) return;
+    recordUserAction("terminal_copy", { section: "终端", label: "复制选中文本", session_id: auditSessionIdRef.current });
     const request = ++clipboardRequestRef.current;
     const copied = await writeTerminalClipboard(text);
     if (request !== clipboardRequestRef.current || !activeRef.current || !termRef.current) return;
@@ -363,6 +366,8 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     }
     clearCommandSuggestions();
     currentCommandSourceRef.current = "human";
+    recordUserAction("terminal_paste", { section: "终端", field: "command",
+      redacted: terminalSensitiveInputRef.current, session_id: auditSessionIdRef.current });
     handleTerminalData(text);
     setClipboardNotice("已粘贴，按 Enter 提交");
     termRef.current?.focus();
@@ -382,6 +387,8 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
         termRef.current?.focus();
         return;
       }
+      recordUserAction("terminal_paste", { section: "终端", field: "command",
+        session_id: auditSessionIdRef.current });
       startCommandQueue({ kind: "clipboard", title: "粘贴命令", commands: text.split("\n") });
     } else {
       insertClipboardText(text);
@@ -1107,6 +1114,8 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     const currentCommand = currentCommandRef.current;
     const cursor = commandCursorRef.current;
     const replacement = item.command;
+    recordUserAction("terminal_suggestion_applied", { section: "终端", label: isRecommendationSuggestion(item) ? "选用推荐命令" : "选用补全命令",
+      field: "command", value: replacement, session_id: auditSessionIdRef.current });
     clearShellFocusPaddingTimer();
     clearCommandSuggestions();
     currentCommandRef.current = replacement;
@@ -1259,6 +1268,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
             );
           }
           onStatusChangeRef.current?.("connected", "", "", String(event.session_id || ""));
+          auditSessionIdRef.current = String(event.session_id || "");
         } else {
           const message = event.message || "代理握手失败";
           terminal.writeln(`\x1b[31m代理握手失败：${message}\x1b[0m`);
