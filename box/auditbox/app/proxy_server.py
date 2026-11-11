@@ -120,6 +120,7 @@ def handle_client(conn: socket.socket, addr: tuple) -> None:
             device_id=str(params.get("device_id") or ""),
             device_name=str(params.get("device_name") or ""),
             device_profile=profile.key,
+            terminal_state_hook=lambda state: _engine.on_terminal_state(session_id, state),
             command_hook=lambda cmd, metadata: _engine.on_command(
                 session_id,
                 cmd,
