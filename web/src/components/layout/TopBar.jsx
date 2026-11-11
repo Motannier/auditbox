@@ -57,7 +57,7 @@ export function TopBar({ user, isSuperAdmin, onLogout }) {
             {exporting ? "正在导出" : "导出操作日志"}
           </button>
         ) : null}
-        <button className="ghost-button" type="button" onClick={onLogout}>
+        <button className="ghost-button" type="button" onClick={onLogout} data-audit-label="退出登录">
           <LogOut size={17} />
           {operatorDisplayName(user)}
         </button>

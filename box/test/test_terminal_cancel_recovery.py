@@ -125,6 +125,22 @@ def test_empty_prompt_after_automatic_retry_recovers_without_replaying_cancelled
     assert bytes(sent).count(b"shutdown") == 1
 
 
+def test_automatic_recovery_stays_out_of_user_audit(tmp_path, monkeypatch, caplog):
+    events = []
+    monkeypatch.setattr(logger, "AUDIT_DIR", str(tmp_path))
+    monkeypatch.setattr(logger, "CommandAuditRepository", lambda: None)
+    monkeypatch.setattr(logger, "AuditStore", lambda: SimpleNamespace(
+        behavior=lambda event, **details: events.append((event, details)),
+        finish_session=lambda _: None))
+    audit = logger.AuditLogger("recovery-test", "test", "console")
+    gate = CommandGate(audit, lambda _: None, lambda _: None)
+    for status in ("started", "retry", "succeeded", "failed"):
+        gate._record_recovery(status)
+    records = [json.loads(line) for line in (tmp_path / "recovery-test.jsonl").read_text().splitlines()]
+    assert not [record for record in records if "recovery" in record["event"]]
+    assert not events
+    assert "终端输入恢复失败" in caplog.text
+    audit.close()
 
 
 class SocketConsole:
