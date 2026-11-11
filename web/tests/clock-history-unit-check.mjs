@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { invalidateComputerClock, synchronizeComputerClock } from "../src/services/clockService.js";
-import { writeAuthSession, readAuthSession, clearAuthSession } from "../src/lib/authStorage.js";
+import { notifyAuthExpired, writeAuthSession, readAuthSession, clearAuthSession } from "../src/lib/authStorage.js";
 import { compareConversationsDescending, conversationTimestamp,
   readActiveConversation, rememberActiveConversation } from "../src/lib/assistantHistory.js";
 
@@ -12,7 +12,9 @@ window.sessionStorage = {
   removeItem: (key) => values.delete(key),
 };
 const events = [];
+const expirations = [];
 window.addEventListener("auditbox-clock-sync", (event) => events.push(event.detail));
+window.addEventListener("auditbox-auth-expired", (event) => expirations.push(event.detail));
 let calls = 0;
 const nativeTimeout = AbortSignal.timeout;
 AbortSignal.timeout = undefined;
@@ -39,6 +41,11 @@ assert.equal(calls, 2, "The first request after a disconnected transport must sy
 globalThis.fetch = async () => { throw new Error("USB offline"); };
 await synchronizeComputerClock("", true);
 assert.match(events.at(-1).error, /USB offline/);
+const beforeExpiry = events.length;
+globalThis.fetch = async () => Response.json({ detail: "登录状态已失效，请重新登录" }, { status: 401 });
+await synchronizeComputerClock("", true);
+assert.equal(expirations.length, 1);
+assert.equal(events.length, beforeExpiry, "Login expiry must not become a clock warning");
 let resolve;
 globalThis.fetch = () => new Promise((done) => { resolve = done; });
 const pending = synchronizeComputerClock("", true);
@@ -46,6 +53,18 @@ clearAuthSession();
 resolve(Response.json({ synchronized: true, token: "must-not-restore" }));
 await pending;
 assert.equal(readAuthSession(), null);
+notifyAuthExpired("new-token");
+assert.equal(expirations.length, 1, "A logged-out response must not reopen the dialog");
+writeAuthSession({ username: "other", role: "admin", token: "other-token" });
+notifyAuthExpired("new-token");
+assert.equal(expirations.length, 1, "An older account must not expire the current login");
+let expireOld;
+globalThis.fetch = () => new Promise(done => { expireOld = done; });
+const oldRequest = synchronizeComputerClock("", true);
+writeAuthSession({ username: "other", role: "admin", token: "renewed-token" });
+expireOld(Response.json({ detail: "登录状态已失效，请重新登录" }, { status: 401 }));
+await oldRequest;
+assert.equal(expirations.length, 1, "A superseded token must not reopen the dialog");
 
 writeAuthSession({ username: "opsadmin", role: "admin", token: "token" });
 rememberActiveConversation("device:A", "conversation-A");

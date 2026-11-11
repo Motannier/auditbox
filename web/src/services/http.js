@@ -1,4 +1,4 @@
-import { readAccessToken } from "../lib/authStorage.js";
+import { notifyAuthExpired, readAccessToken } from "../lib/authStorage.js";
 import { invalidateComputerClock, synchronizeComputerClock } from "./clockService.js";
 
 // Production is served by the gateway itself, so relative URLs keep requests
@@ -16,7 +16,7 @@ export async function apiFetch(path, options = {}) {
   const { headers, ...requestOptions } = options;
   const isFormData = typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
   try {
-    return await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       ...requestOptions,
       headers: {
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
@@ -24,6 +24,12 @@ export async function apiFetch(path, options = {}) {
         ...(headers || {}),
       },
     });
+    if (response.status === 401 && token && path !== "/api/auth/login") {
+      const body = await response.clone().json().catch(() => null);
+      // Target SSH/Telnet credential failures also use 401; keep their own UI.
+      if (["登录状态已失效，请重新登录", "请先登录"].includes(body?.detail)) notifyAuthExpired(token);
+    }
+    return response;
   } catch (error) {
     // A unplug/reboot may have reset the appliance clock during the short
     // throttle window. The first recovered request must calibrate again.
