@@ -2193,6 +2193,8 @@ def _safe_csv_value(value: Any) -> str:
         text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     else:
         text = str(value)
+    # Python 3.10's CSV writer treats a NUL as an unset escape character.
+    text = text.replace("\x00", r"\x00")
     # Prevent a command or remark from becoming an Excel formula when the CSV
     # is opened on Windows. Leading whitespace must be considered as well.
     stripped = text.lstrip()
