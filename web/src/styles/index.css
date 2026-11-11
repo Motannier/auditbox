@@ -2895,68 +2895,26 @@ body.resizing-operations .workspace {
   font-size: 10px;
 }
 
-.operation-history-item.evidence.low {
+.operation-history-item.low {
+  --operation-history-risk-color: #087443;
   border-color: rgba(18, 183, 106, 0.26);
   background: #f3fff8;
 }
 
-.operation-history-item.evidence.low small {
-  color: #087443;
-  font-weight: 900;
-}
-
-.operation-history-item.evidence.medium {
-  border-color: rgba(247, 144, 9, 0.28);
-  background: #fffaeb;
-}
-
-.operation-history-item.evidence.medium small {
-  color: #9a6700;
-  font-weight: 900;
-}
-
-.operation-history-item.evidence.high {
-  border-color: rgba(239, 104, 32, 0.3);
-  background: #fff6ed;
-}
-
-.operation-history-item.evidence.high small {
-  color: #b54708;
-  font-weight: 900;
-}
-
-.operation-history-item.evidence.critical {
+.operation-history-item.medium,
+.operation-history-item.high,
+.operation-history-item.critical {
+  --operation-history-risk-color: #b42318;
   border-color: rgba(217, 45, 32, 0.28);
   background: #fff7f5;
 }
 
-.operation-history-item.evidence.critical small {
-  color: #b42318;
-  font-weight: 900;
-}
-
-.operation-history-item.evidence.unknown {
-  border-color: var(--sg-border);
-  background: rgba(0, 113, 108, 0.035);
-}
-
-.operation-history-item.evidence.unknown small {
-  color: var(--sg-green-deep);
-  font-weight: 900;
-}
-
-.operation-history-item.authorized {
-  border-color: rgba(0, 113, 108, 0.26);
-  background: rgba(0, 113, 108, 0.055);
-}
-
-.operation-history-item.authorized small {
-  color: var(--sg-green-deep);
-  font-weight: 900;
+.operation-history-item > span > small {
+  color: var(--operation-history-risk-color, var(--sg-muted));
 }
 
 .operation-history-item code {
-  color: #233735;
+  color: var(--operation-history-risk-color, #233735);
   font-size: 11px;
   line-height: 1.45;
   white-space: pre-wrap;
