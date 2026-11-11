@@ -91,6 +91,11 @@ export async function checkClientDeviceFlow(browser, url) {
       await page.getByRole("button", { name: "收起设备列表", exact: true }).click();
       await page.locator(".left-panel.collapsed").waitFor();
       assert.equal(await sidebarToggle.getAttribute("aria-expanded"), "false");
+      await page.waitForFunction(() => {
+        const button = document.querySelector(".device-panel-edge-toggle").getBoundingClientRect();
+        const terminal = document.querySelector(".terminal-area").getBoundingClientRect();
+        return button.right <= terminal.left || button.bottom <= terminal.top;
+      });
       await page.getByRole("button", { name: "运维管理员", exact: true }).click();
       await page.waitForURL("**/login");
       await page.getByText(`接入设备：${example.label}`, { exact: true }).waitFor();

@@ -414,6 +414,14 @@ input {
 .left-panel.collapsed {
   padding: 0;
   grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+.left-panel.collapsed .device-panel-edge-toggle {
+  right: 0;
+  width: 100%;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .left-panel.collapsed .device-panel-header,
@@ -1587,6 +1595,7 @@ input {
 
   .left-panel.collapsed {
     padding: 10px 12px;
+    min-height: 52px;
   }
 
   .device-panel-resizer {

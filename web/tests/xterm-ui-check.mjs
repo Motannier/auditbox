@@ -974,7 +974,7 @@ try {
 
   const workspace = page.locator(".workspace");
   const initialColumns = await workspace.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
-  const workspaceBox = await workspace.boundingBox();
+  const workspaceBox = await page.locator(".left-panel").boundingBox();
   const expandedToggle = page.getByRole("button", { name: "收起设备列表" });
   const expandedToggleBox = await expandedToggle.boundingBox();
   if (
@@ -988,12 +988,12 @@ try {
   await expandedToggle.click();
   await page.locator(".left-panel.collapsed").waitFor();
   await page.waitForFunction(() =>
-    getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("1px"),
+    getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("32px"),
   );
   const collapsedColumns = await workspace.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
   const collapsedToggle = page.getByRole("button", { name: "展开设备列表" });
   await collapsedToggle.waitFor();
-  if (collapsedColumns === initialColumns || !collapsedColumns.startsWith("1px")) {
+  if (collapsedColumns === initialColumns || !collapsedColumns.startsWith("32px")) {
     throw new Error(`Device panel did not collapse: before=${initialColumns}; after=${collapsedColumns}`);
   }
   if (await page.locator(".left-panel").getByRole("button", { name: "新建安全连接" }).isVisible()) {
@@ -1003,7 +1003,8 @@ try {
   if (
     !workspaceBox ||
     !collapsedToggleBox ||
-    Math.abs(collapsedToggleBox.x - (workspaceBox.x + 1)) > 2 ||
+    Math.abs(collapsedToggleBox.x - workspaceBox.x) > 2 ||
+    collapsedToggleBox.x + collapsedToggleBox.width > workspaceBox.x + 32 ||
     Math.abs(collapsedToggleBox.y + collapsedToggleBox.height / 2 - (workspaceBox.y + workspaceBox.height / 2)) > 2
   ) {
     throw new Error(
@@ -1148,6 +1149,30 @@ try {
   await targetConnectDialog.getByRole("button", { name: "连接" }).click();
 
   await page.locator(".xterm").waitFor({ timeout: 5_000 });
+  for (const width of [1280, 1920, 1024]) {
+    await page.setViewportSize({ width, height: 820 });
+    await page.getByRole("button", { name: "收起设备列表", exact: true }).click();
+    await page.waitForFunction(() =>
+      getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("32px"),
+    );
+    const uncovered = await page.locator(".device-panel-edge-toggle").evaluate((button) => {
+      const toggle = button.getBoundingClientRect();
+      const terminal = document.querySelector(".terminal-area").getBoundingClientRect();
+      const xterm = document.querySelector(".terminal-session.active .xterm");
+      const screen = xterm.getBoundingClientRect();
+      const hit = document.elementFromPoint(screen.left + 2, toggle.top + toggle.height / 2);
+      return toggle.right <= terminal.left && !!hit && xterm.contains(hit);
+    });
+    if (!uncovered) throw new Error(`Collapsed device toggle covers terminal output at ${width}px`);
+    if (process.env.WEBUI_TEST_COLLAPSED_SCREENSHOT && width === 1280) {
+      await page.screenshot({ path: process.env.WEBUI_TEST_COLLAPSED_SCREENSHOT, fullPage: true });
+    }
+    await page.getByRole("button", { name: "展开设备列表", exact: true }).click();
+    await page.waitForFunction(() =>
+      !getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("32px"),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 820 });
   await page.getByRole("tab", { name: "运维助手" }).click();
   await page.waitForFunction(() => document.querySelector(".assistant-context")?.textContent.includes("核心交换机"));
   if (!assistantConversationQueries.includes("device-1")) {
