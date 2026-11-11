@@ -137,23 +137,18 @@ export function OperationReviewPanel({ review, target }) {
 
           <div className="operation-history-list">
             {history.length ? history.map((item) => {
-              const finding = findings.get(item.seq);
+              const finding = findings.get(item.seq)
+                || (commandReview.seq === item.seq && commandReview.risk !== "unknown" ? commandReview : null);
               const itemRisk = finding?.risk || "unknown";
               const itemRiskLabel = itemRisk === "unknown" ? "待核验" : RISK_LABELS[itemRisk];
               return (
               <article
-                className={`operation-history-item ${
-                  item.authorized
-                    ? "authorized"
-                    : evidence.has(item.seq)
-                      ? `evidence ${finding ? itemRisk : ""}`
-                      : ""
-                }`}
+                className={`operation-history-item ${itemRisk}`}
                 key={item.seq}
               >
                 <span>
                   <time>{formatTime(item.ts)}</time>
-                  <small>{finding ? `${historyStatusLabel(item, false)} · ${itemRiskLabel}` : historyStatusLabel(item, evidence.has(item.seq))}</small>
+                  <small>{historyStatusLabel(item, !finding && evidence.has(item.seq))} · {itemRiskLabel}</small>
                 </span>
                 <code>{item.command}</code>
                 {finding ? (
