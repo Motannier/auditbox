@@ -101,10 +101,7 @@ try {
       terminalSocket = socket;
       socket.send(JSON.stringify({ type: "handshake", status: "ok", session_id: "mock" }));
       socket.send("\r\nSwitch# ");
-      socket.onMessage((message) => {
-        socketMessages.push(String(message));
-        if (String(message).startsWith('{"type":"command_confirmation')) socket.send("\r\nSwitch# ");
-      });
+      socket.onMessage((message) => { socketMessages.push(String(message)); });
     });
     try {
       await page.goto(`${url}/console`);

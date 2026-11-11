@@ -69,26 +69,6 @@ try {
       { seq: 3, risk: "high", status: "executed", reason: "关闭接口影响连通状态", execution_note: "已确认本次下发，旁路仅记录和展示" },
     ],
   };
-  await page.evaluate(review => window.renderReview(review), {
-    ...base, device_profile: "huawei_vrp",
-    history: [...base.history,
-      { seq: 4, command: "display version", status: "executed" },
-      { seq: 5, command: "vlan 10", status: "executed" },
-      { seq: 6, command: "pending-command", status: "executed" }],
-    findings: [...base.findings,
-      { seq: 4, risk: "low", status: "executed", reason: "只读查询" },
-      { seq: 5, risk: "medium", status: "executed", reason: "配置变更" }],
-  });
-  await page.getByText("已下发 · 低风险", { exact: true }).waitFor();
-  const [high, unknown, authorized, low, medium, pending] = await page.locator(".operation-history-item code")
-    .evaluateAll(commands => commands.map(command => getComputedStyle(command).color));
-  assert.equal(low, "rgb(8, 116, 67)");
-  assert.equal(high, "rgb(180, 35, 24)");
-  assert.equal(authorized, high);
-  assert.equal(medium, high);
-  assert.equal(pending, unknown);
-  assert.notEqual(unknown, low);
-  assert.notEqual(unknown, high);
   for (const profile of ["huawei_vrp", "cisco_ios", "zte_zxr10"]) {
     await page.evaluate(review => window.renderReview(review), { ...base, device_profile: profile });
     await page.getByText("规则旁路审计运行中", { exact: true }).waitFor();
@@ -119,7 +99,7 @@ try {
     await page.evaluate(review => window.renderReview(review), { ...base, device_profile: profile, review_source: "model", findings: [], intent: "模型判断" });
     await page.getByText("实时安全审查运行中", { exact: true }).waitFor();
     assert.ok((await page.locator(".operation-review-status small").textContent()).includes(label));
-    assert.equal(await page.locator(".operation-history-reason").count(), 1);
+    assert.equal(await page.locator(".operation-history-reason").count(), 0);
     assert.equal(await page.getByText("模型判断", { exact: true }).count(), 1);
   }
   for (const profile of ["linux", "h3c_comware", "huawei_vrp", "cisco_ios", "zte_zxr10"]) {
@@ -143,7 +123,7 @@ try {
     current: { seq: 4, risk: "low", reason: "仅查询设备版本" },
     history: [...base.history, { seq: 4, command: "display version", status: "executed" }],
   });
-  await page.locator(".operation-review-summary").getByText("仅查询设备版本", { exact: true }).waitFor();
+  await page.getByText("仅查询设备版本", { exact: true }).waitFor();
   assert.equal(await page.locator(".risk-badge").textContent(), "低风险");
   assert.doesNotMatch(await page.locator(".operation-history-item").last().textContent(), /高风险|严重风险|风险依据/);
   assert.match(await page.locator(".operation-context-review").textContent(), /历史上下文.*严重风险/);

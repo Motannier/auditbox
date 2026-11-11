@@ -60,8 +60,8 @@ export async function fetchRecentConnections(limit = 4) {
   }));
 }
 
-export async function fetchConsolePorts(signal) {
-  return apiRequest("/api/console/ports", { signal });
+export async function fetchConsolePorts() {
+  return apiRequest("/api/console/ports");
 }
 
 export async function createSession(payload) {

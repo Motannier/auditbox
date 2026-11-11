@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import threading
 from types import SimpleNamespace
 
 import pytest
@@ -65,68 +64,6 @@ def test_queue_reset_and_snapshot_revisions_prevent_stale_risk(tmp_path, monkeyp
         assert engine._sessions["one"]["review"]["status"] == "queued"
     finally:
         engine.close()
-
-
-@pytest.mark.parametrize("profile,commands", [
-    ("linux", ("pwd", "reboot", "df -h")),
-    ("h3c_comware", ("display version", "shutdown", "display device")),
-])
-def test_rapid_model_commands_keep_separate_risks(tmp_path, monkeypatch, profile, commands):
-    first_started, release_first, completed = threading.Event(), threading.Event(), threading.Event()
-    processed, recorded = [], []
-
-    def review(job):
-        item = job.history[-1]
-        seq = item["seq"]
-        processed.append(seq)
-        if seq == 1:
-            first_started.set()
-            assert release_first.wait(3)
-        if seq == 2 and processed.count(2) == 1:
-            raise history_review.ReviewPreempted
-        finding = {"seq": seq, "risk": "high" if seq == 2 else "low", "reason": "单条结论",
-                   "status": item["status"], "code": "model_current"}
-        return {"status": "ready", "risk": "high" if seq >= 2 else "low",
-                "current": finding, "findings": [finding], "reviewed_through_seq": seq}
-
-    def audit(_event, details):
-        recorded.extend(details["findings"])
-        if details["reviewed_through_seq"] == 3:
-            completed.set()
-
-    monkeypatch.setattr(engine_module, "AUDITBOX_HISTORY_REVIEW_ENABLED", True)
-    monkeypatch.setattr(history_review, "_review_history", review)
-    engine = PredictionEngine(tmp_path / "commands.db")
-    socket = CaptureSocket()
-    try:
-        engine.register_session("one", "ssh", device_type="server" if profile == "linux" else "switch",
-                                device_profile=profile)
-        engine.add_subscriber("one", socket)
-        engine.register_audit_handler("one", audit)
-        engine.on_command("one", commands[0])
-        assert first_started.wait(2)
-        engine.on_command("one", commands[1], {"authorized": True})
-        engine.on_command("one", commands[2])
-        release_first.set()
-        assert completed.wait(3)
-
-        assert processed == [1, 2, 2, 3]
-        updates = [json.loads(message) for message in socket.messages]
-        queued = [update for update in updates if update.get("current", {}).get("seq") == 3
-                  and update["status"] == "queued"]
-        assert [len(update["findings"]) for update in queued] == [0, 1, 2]
-        assert all(update["current"]["risk"] == "unknown" for update in queued)
-        assert len({update["review_revision"] for update in queued}) == len(queued)
-        final = updates[-1]
-        assert [(item["seq"], item["risk"]) for item in final["findings"]] == [(1, "low"), (2, "high"), (3, "low")]
-        assert final["risk"] == "high" and current_command_review(final)["risk"] == "low"
-        assert [finding.split()[0] for finding in recorded] == ["seq=1", "seq=2", "seq=3"]
-    finally:
-        release_first.set()
-        engine.close()
-        engine._reviewer._worker.join(2)
-        engine._rules_reviewer._worker.join(2)
-
 
 
 @pytest.mark.parametrize("profile,query", [("linux", "uptime"), ("h3c_comware", "display version")])

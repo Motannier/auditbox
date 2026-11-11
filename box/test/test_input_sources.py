@@ -1,7 +1,6 @@
 import asyncio
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
@@ -60,9 +59,6 @@ def test_cancel_block_and_manual_clear_keep_audit(audited_gate):
     gate.cancel_confirmation(alerts[-1]["confirmation_id"])
     assert commands[-1][1]["status"] == "cancelled"
     assert commands[-1][1]["input_source"] == "agent"
-    gate.feed_output(b"\r\nroot@box:~$ ")
-    with patch("auditbox.relay.command_gate.time.monotonic", return_value=gate._line_read.output_at + 0.1):
-        gate.poll()
     gate.feed_transport(encode_input(b"rm -rf /\n", "guide"))
     assert commands[-1][1]["status"] == "blocked"
     assert commands[-1][1]["input_source"] == "guide"

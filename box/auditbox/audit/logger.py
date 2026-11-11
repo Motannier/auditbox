@@ -1,5 +1,6 @@
 """审计日志：将命令、终端转录和界面操作写入 JSONL 文件。"""
 
+import json
 import logging
 import re
 import threading
@@ -9,7 +10,6 @@ from functools import wraps
 from pathlib import Path
 
 from auditbox.audit.store import AuditStore, redact, safe_audit
-from auditbox.audit.behavior import GUIDE_ACTIONS, TERMINAL_ACTIONS, append_jsonl, bounded_details, record_behavior
 from auditbox.db.models import CommandAudit
 from auditbox.db.repositories import CommandAuditRepository
 from auditbox.env import AUDITBOX_AUDIT_DIR
@@ -42,7 +42,7 @@ class AuditLogger:
                  account: str = "未登录",
                  command_hook=None, security_hook=None,
                  command_result_hook=None, login_id="", device_id="",
-                 device_name="", device_profile="", terminal_state_hook=None):
+                 device_name="", device_profile=""):
         self.session_id   = session_id
         self.target       = target
         self.protocol     = protocol
@@ -54,8 +54,6 @@ class AuditLogger:
         self._command_hook = command_hook   # callable(cmd: str, metadata: dict) | None
         self._security_hook = security_hook # callable(cmd: str, alert: dict, blocked: bool) | None
         self._command_result_hook = command_result_hook
-        self._terminal_state_hook = terminal_state_hook
-        self._terminal_mode = "unknown"
         self._command_repo = CommandAuditRepository()
         self._store = safe_audit(AuditStore)
         self._context = {"login_id": login_id or None, "session_id": session_id,
@@ -83,12 +81,6 @@ class AuditLogger:
     @_synchronized
     def set_input_context(self, context):
         self._input_context = dict(context)
-
-    def log_terminal_state(self, state):
-        # State messages contain no terminal text or credentials.
-        self._terminal_mode = state.get("mode", "unknown")
-        if self._terminal_state_hook:
-            self._terminal_state_hook(dict(state))
 
     @_synchronized
     def _business_command(self, command, source, status, *, authorized=False):
@@ -301,6 +293,12 @@ class AuditLogger:
                        status="unknown" if success else "failed", completed_at=_utc_now(),
                        result_basis="已返回提示符，未获得明确退出码" if success else "识别到设备错误提示")
             self._current_execution = None
+        self._write({
+            "event": "command_result",
+            "command": stored_command,
+            "redacted": stored_command != command,
+            "status": "succeeded" if success else "failed",
+        })
         if not self._command_result_hook:
             return
         try:
@@ -323,20 +321,11 @@ class AuditLogger:
             "byte_count": len(data),
             "forwarded": forwarded,
             "redacted": sensitive,
-            "mode": self._terminal_mode,
         }
         if sensitive:
             record["data"] = "[敏感输入已隐藏]"
         else:
             record["data"] = "[输入内容见命令记录]"
-            record["keys"] = [label for key, label in (
-                (b"\x03", "Ctrl+C"), (b"\t", "Tab"), (b"\r", "Enter"),
-                (b"\n", "Enter"), (b"\x7f", "Backspace"), (b"\x08", "Backspace"),
-                (b"\x1b[A", "历史上一条"), (b"\x1b[B", "历史下一条"),
-            ) if key in data]
-            record["details"] = {"keys": record["keys"], "mode": self._terminal_mode, "forwarded": forwarded}
-            if forwarded and self._terminal_mode in {"pager", "interaction"} and re.fullmatch(rb"[yYeEsSnNoOqQ \r\n\x03\x08\x7f]*", data):
-                record["data"] = data.decode("utf-8", errors="replace")
         self._write(record)
 
     @_synchronized
@@ -353,14 +342,21 @@ class AuditLogger:
                 self._output_timer.daemon = True
                 self._output_timer.start()
 
-    @_synchronized
     def log_operation(self, event: str, details: dict | None = None) -> None:
         """Record a validated UI operation associated with this terminal session."""
         normalized_event = str(event or "").strip()
-        # Automatic reviews only enrich the command that the user submitted.
-        # Recovery, review and queue progress are diagnostic events, not actions.
-        if self._store and normalized_event in {"security_rule_review", "security_model_review"}:
+        if (
+            not normalized_event.startswith(("guide_", "security_"))
+            or len(normalized_event) > 64
+        ):
+            return
+        self._write({
+            "event": normalized_event,
+            "details": _bounded_details(details or {}),
+        })
+        if self._store and normalized_event.startswith("security_"):
             details = details or {}
+            safe_audit(self._store.behavior, normalized_event, context=self._context, **redact(details))
             for seq in ([] if "current" in details else details.get("evidence", [])):
                 if isinstance(seq, int) and 0 < seq <= len(self._execution_sequence):
                     safe_audit(self._store.update, "executions", self._execution_sequence[seq - 1],
@@ -373,16 +369,6 @@ class AuditLogger:
                                risk=match[2], risk_reason=(details.get("current", {}).get("reason", "")
                                    if str(details.get("current", {}).get("seq")) == match[1] else str(finding)),
                                review_source="rules" if "rule" in normalized_event else "model")
-        elif normalized_event in GUIDE_ACTIONS | TERMINAL_ACTIONS:
-            details = {k: v for k, v in (details or {}).items()
-                       if k not in {"context", "result", "execution_id", "audit_dir", "store", "action"}}
-            if self._store:
-                record_behavior(self._store, normalized_event, context=self._context,
-                                audit_dir=AUDIT_DIR, **bounded_details(details))
-            else:
-                self._write({"event": normalized_event, "details": bounded_details(details or {})})
-        else:
-            log.debug("[%s] %s: %s", self.session_id, normalized_event, bounded_details(details or {}))
 
     @_synchronized
     def close(self) -> None:
@@ -392,16 +378,15 @@ class AuditLogger:
         self._flush_output()
         if self._store:
             safe_audit(self._store.finish_session, self.session_id)
-        log.info("[%s] 终端会话结束", self.session_id)
+        self._write({"event": "session_end"})
 
     def _write(self, record: dict, ts: str | None = None) -> None:
         record.setdefault("account", self.account)
-        for key in ("login_id", "session_id", "target", "protocol", "device_id", "device_name"):
-            record.setdefault(key, self._context.get(key))
         record["ts"] = ts or _utc_now()
         try:
             with self._lock:
-                append_jsonl(self._path, record)
+                with open(self._path, "a", encoding="utf-8", newline="\n") as f:
+                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
         except OSError:
             log.exception("[%s] 审计文件写入失败；记录可能不完整", self.session_id)
 
@@ -447,3 +432,26 @@ def _redact_command(command: str) -> str:
     redacted = _SECRET_ASSIGNMENT_RE.sub(r"\1[已隐藏]", command)
     redacted = _SECRET_OPTION_RE.sub(r"\1[已隐藏]", redacted)
     return redact(_AUTHORIZATION_RE.sub(r"\1[已隐藏]", redacted))
+
+
+def _bounded_details(details: dict) -> dict:
+    """Keep client-originated metadata useful without allowing unbounded records."""
+    bounded: dict = {}
+    for key, value in list(details.items())[:24]:
+        safe_key = str(key)[:64]
+        if isinstance(value, str):
+            text = value[:2048]
+            bounded[safe_key] = _redact_command(text) if "command" in safe_key else text
+        elif isinstance(value, (bool, int, float)) or value is None:
+            bounded[safe_key] = value
+        elif isinstance(value, list):
+            items = [str(item)[:1024] for item in value[:64]]
+            bounded[safe_key] = [_redact_command(item) for item in items] if "command" in safe_key else items
+        elif isinstance(value, dict):
+            bounded[safe_key] = {
+                str(child_key)[:64]: str(child_value)[:1024]
+                for child_key, child_value in list(value.items())[:24]
+            }
+        else:
+            bounded[safe_key] = str(value)[:2048]
+    return bounded

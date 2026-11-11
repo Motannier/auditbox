@@ -33,10 +33,3 @@ export function clearAuthSession() {
 export function readAccessToken() {
   return readAuthSession()?.token || "";
 }
-
-export function notifyAuthExpired(token) {
-  // Ignore responses from a logged-out account or a superseded login token.
-  if (token && readAccessToken() === token) {
-    window.dispatchEvent(new CustomEvent("auditbox-auth-expired", { detail: { token } }));
-  }
-}

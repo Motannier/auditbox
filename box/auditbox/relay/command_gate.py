@@ -15,7 +15,6 @@ from auditbox.branding import product_name
 from auditbox.device_profiles import LINUX, get_device_profile
 from auditbox.relay.command_cleaner import _ESC_RE, clean_command
 from auditbox.relay.terminal_line import TerminalLineSync
-from auditbox.relay.interaction import prompt_mode
 from auditbox.relay.input_frames import InputDecoder, INPUT_SOURCES
 from auditbox.security.alert import check as alert_check
 
@@ -24,6 +23,9 @@ log = logging.getLogger(__name__)
 _HISTORY_UP = (b"\x1b[A", b"\x1bOA")
 _HISTORY_DOWN = (b"\x1b[B", b"\x1bOB")
 _HISTORY_NAV_SEQUENCES = _HISTORY_UP + _HISTORY_DOWN
+_SENSITIVE_PROMPT_RE = re.compile(
+    r"(?i)(?:password|passwd|passphrase|口令|密码|验证码|token|secret)[^\r\n]{0,96}[:：]\s*$"
+)
 
 _SNAPSHOT_TIMEOUT = 2.0
 _SNAPSHOT_SETTLE = 0.08
@@ -49,7 +51,6 @@ class CommandGate:
         client_send: Callable[[bytes], object],
         device_profile: str = LINUX,
         input_framing: bool = False,
-        require_command_prompt: bool = False,
     ):
         self._audit = audit
         self._target_send = target_send
@@ -58,6 +59,11 @@ class CommandGate:
         self._device_profile = profile.key
         self._line_clear_sequence = profile.line_clear_sequence
         self._line_redraw_sequence = profile.line_redraw_sequence
+        self._pager_prompt_re = (
+            re.compile(profile.pager_prompt_pattern, re.IGNORECASE)
+            if profile.pager_prompt_pattern
+            else None
+        )
         self._command_error_re = (
             re.compile(profile.command_error_pattern)
             if profile.command_error_pattern
@@ -80,13 +86,6 @@ class CommandGate:
         self._input_source = "human"
         self._sensitive_input = False
         self._pager_active = False
-        # Raw legacy clients retain their existing audit policy. Web sessions
-        # require a recognized prompt before submitting a nonempty command.
-        self._require_command_prompt = require_command_prompt
-        self._mode = "unknown"
-        self._mode_version = 0
-        self._interaction_waiting = False
-        self._interaction_reply = bytearray()
         self._pending_result_command: str | None = None
         self._pending_result_failed = False
         self._lock = threading.RLock()
@@ -107,22 +106,41 @@ class CommandGate:
             raise ValueError("Invalid terminal input source")
         with self._lock:
             if self._pending_confirmation or self._line_read:
-                recovering = bool(self._line_read and self._line_read.purpose == "clear" and data == b"\x03")
-                self._log_terminal_input(data, forwarded=recovering)
-                if recovering:
-                    self._recover_remote_line(source=self._line_read.source)
-                return
-            if self._mode in {"auth", "secret", "pager", "interaction"}:
-                self._input_buf.clear()
-                self._requires_remote_line = False
-                self._used_history_nav = False
-                self._forward_interaction(data, source)
+                self._log_terminal_input(data, forwarded=False)
+                # A cancelled line is never submitted to obtain a fresh prompt.
+                # Ctrl+C remains available if the device has not reprompted yet.
+                if self._line_read and self._line_read.purpose == "clear" and data == b"\x03":
+                    self._target_send(data)
                 return
             self._log_terminal_input(data, sensitive=self._sensitive_input)
             i = 0
             while i < len(data):
                 if self._pending_confirmation or self._line_read:
                     return
+                if self._pager_active:
+                    if data.startswith(b"\r\n", i):
+                        self._target_send(b"\r\n")
+                        self._pager_active = False
+                        i += 2
+                        continue
+                    pager_key = data[i:i + 1]
+                    if pager_key in {b" ", b"q", b"Q", b"\r", b"\n", b"\x03"}:
+                        self._target_send(pager_key)
+                        self._pager_active = False
+                        i += 1
+                        continue
+                if self._sensitive_input:
+                    if data.startswith(b"\r\n", i):
+                        self._target_send(b"\r\n")
+                        self._finish_sensitive_input()
+                        i += 2
+                        continue
+                    byte = data[i:i + 1]
+                    self._target_send(byte)
+                    if byte in (b"\r", b"\n"):
+                        self._finish_sensitive_input()
+                    i += 1
+                    continue
                 # A guide-filled line stays guide-originated even when the
                 # user edits it or presses Enter. Clearing/recalling starts a
                 # fresh line; source is independent of execution permission.
@@ -152,10 +170,6 @@ class CommandGate:
                 if byte in (b"\x03", b"\x15", b"\x18"):
                     self._input_source = source
                 if byte == b"\x03":
-                    if self._input_buf and not self._sensitive_input:
-                        callback = getattr(self._audit, "log_operation", None)
-                        if callback:
-                            callback("terminal_input_cancelled", {"command": self._line_sync.command or self._input_buf.decode("utf-8", errors="replace")})
                     self._input_buf.clear()
                     self._requires_remote_line = False
                     self._used_history_nav = False
@@ -179,19 +193,12 @@ class CommandGate:
                     self._line_read.output_at = time.monotonic()
                 decoded = _ESC_RE.sub("", data.decode(errors="replace"))
                 self._output_tail = (self._output_tail + decoded)[-512:]
-                special = prompt_mode(self._line_sync.visible_line)
-                standalone_reply = special == "interaction" and self._line_sync.visible_line.strip().lower().startswith(("[y/n]", "[yes/no]", "[confirm]"))
-                if self._line_sync.command and not standalone_reply and not (special == "secret" and self._line_sync.visible_line.startswith("[sudo]")):
-                    special = None
-                if not self._pending_confirmation and not self._line_read:
-                    if special and not self._input_buf:
-                        self._interaction_waiting = False
-                        self._interaction_reply.clear()
-                        self._set_mode(special)
-                    elif self._line_sync.at_prompt:
-                        self._set_mode("command")
-                    elif self._mode == "command" and self._line_sync.command is None and not self._input_buf:
-                        self._set_mode("running")
+                self._pager_active = bool(
+                    self._pager_prompt_re
+                    and self._pager_prompt_re.search(self._output_tail)
+                )
+                if _SENSITIVE_PROMPT_RE.search(self._output_tail):
+                    self._sensitive_input = True
                 if self._pending_result_command:
                     if self._command_error_re and self._command_error_re.search(
                         self._output_tail
@@ -229,7 +236,6 @@ class CommandGate:
         self._input_buf.clear()
         self._used_history_nav = False
         self._requires_remote_line = False
-        self._set_mode("running")
         self._audit_event("log_confirmation_result", command, True, source=source)
         log_authorized = getattr(self._audit, "log_authorized_command", None)
         if log_authorized:
@@ -252,85 +258,28 @@ class CommandGate:
             pending = self._pending_confirmation
             if not pending or not secrets.compare_digest(pending[0], confirmation_id):
                 return False
-            _, command, _, source = pending
+            _, command, separator, source = pending
             self._pending_confirmation = None
+            self._line_read = None
+            self._input_buf.clear()
+            self._used_history_nav = False
+            self._requires_remote_line = False
+            verify_clear = self._confirmation_from_echo or self._line_sync.command is not None
             self._confirmation_from_echo = False
+            self._line_sync.reset()
             self._audit_event("log_confirmation_result", command, False, source=source)
             self._notify("\r\n\x1b[33m[安全审查] 高风险操作已取消\x1b[0m\r\n")
-            self._recover_remote_line(source=source)
+            if verify_clear:
+                self._line_read = _LineRead("clear", b"", source, time.monotonic())
+            # End makes the clear-to-left operation independent of cursor
+            # position. Ctrl+C reprompts; critically, there is NO Enter here.
+            self._target_send(b"\x05" + self._line_clear_sequence + b"\x03")
             return True
 
-    def _recover_remote_line(self, *, source: str, retried: bool = False) -> None:
-        self._finish_sensitive_input()
-        self._set_mode("recovering")
-        self._line_read = _LineRead("clear", b"", source, time.monotonic(), notified=retried)
-        self._record_recovery("retry" if retried else "started")
-        # Never send Enter to recover: the device may still hold the cancelled command.
-        self._target_send(b"\x05" + self._line_clear_sequence + b"\x03"
-                          + (self._line_redraw_sequence or b"\x01\x05"))
-
-    def _record_recovery(self, status: str) -> None:
-        details = {"status": status, "device_profile": self._device_profile}
-        callback = getattr(self._audit, "log_operation", None)
-        if callback:
-            callback("security_terminal_input_recovery_" + status, details)
-        if status == "failed":
-            log.warning("[%s] 终端输入恢复失败，结束当前连接", self._audit.session_id)
-
     def mark_sensitive_input_complete(self) -> None:
-        """Wait for the next real prompt after out-of-band Telnet credentials."""
+        """Clear password-prompt state after credentials were supplied out of band."""
         with self._lock:
-            self._input_buf.clear()
-            self._line_sync.reset()
-            self._output_tail = ""
-            self._interaction_waiting = True
-
-    def _set_mode(self, mode: str) -> None:
-        self._sensitive_input = mode in {"auth", "secret"}
-        self._pager_active = mode == "pager"
-        if mode == "command":
-            self._interaction_waiting = False
-            self._interaction_reply.clear()
-        if mode == self._mode:
-            return
-        self._mode = mode
-        self._mode_version += 1
-        callback = getattr(self._audit, "log_terminal_state", None)
-        if callback:
-            callback({"mode": mode, "version": self._mode_version})
-
-    def _forward_interaction(self, data: bytes, source: str) -> None:
-        # One reply per observed prompt prevents a paste from logging in and
-        # executing its remaining lines before the next output packet arrives.
-        sent = b""
-        if source == "human" and data == b"\x03":
-            sent = data
-        elif source == "human" and not self._interaction_waiting:
-            if self._mode == "pager":
-                for byte in data:
-                    key = bytes([byte])
-                    if key not in (b" ", b"q", b"Q", b"\r", b"\n", b"\x03"):
-                        break
-                    sent += key
-                    if key in (b"q", b"Q", b"\x03"):
-                        self._interaction_waiting = True
-                        break
-            else:
-                end = re.search(rb"\r\n|[\r\n]", data)
-                reply = data[:end.end()] if end else data
-                if self._mode != "interaction" or re.fullmatch(rb"[yYeEsSnNoO\r\n\x08\x7f]*", reply):
-                    # Device confirmations accept only their own short answer.
-                    answer = bytes(self._interaction_reply) + reply
-                    if self._mode != "interaction" or len(answer) <= 16:
-                        sent = reply
-                        if self._mode == "interaction":
-                            self._interaction_reply.extend(reply)
-                        self._interaction_waiting = bool(end)
-        if sent:
-            self._log_terminal_input(sent, sensitive=self._sensitive_input)
-            self._target_send(sent)
-        if len(sent) < len(data):
-            self._log_terminal_input(data[len(sent):], sensitive=self._sensitive_input, forwarded=False)
+            self._finish_sensitive_input()
 
     def _handle_history_nav(self, seq: bytes) -> None:
         self._used_history_nav = True
@@ -377,15 +326,8 @@ class CommandGate:
         self._requires_remote_line = False
 
         if not command:
-            if self._mode == "command":
-                self._set_mode("running")
             self._line_sync.reset()
             self._target_send(separator)
-            return
-
-        if self._require_command_prompt and self._mode != "command":
-            self._input_buf = bytearray(command.encode("utf-8"))
-            self._notify("\r\n\x1b[33m[终端] 尚未识别到命令提示符，未提交；请等待设备就绪，或按 Ctrl+C 恢复提示符。\x1b[0m\r\n")
             return
 
         # Reaching another submitted command means the prior prompt was ready
@@ -404,7 +346,6 @@ class CommandGate:
                                        from_echo=from_echo or self._line_sync.command == command)
             return
 
-        self._set_mode("running")
         self._audit_event("log_command", command, source=source)
         self._line_sync.reset()
         self._output_tail = ""
@@ -414,7 +355,6 @@ class CommandGate:
 
     def _clear_remote_line(self, *, verify: bool = False) -> None:
         try:
-            self._set_mode("recovering" if verify else "unknown")
             if verify:
                 self._line_read = _LineRead("clear", b"", "human", time.monotonic())
             if self._line_redraw_sequence or not verify:
@@ -445,7 +385,6 @@ class CommandGate:
             separator,
             source,
         )
-        self._set_mode("confirmation")
         self._confirmation_from_echo = from_echo
         self._audit_event(
             "log_confirmation_required",
@@ -479,14 +418,12 @@ class CommandGate:
             now = time.monotonic()
             command = self._line_sync.command
             ready = (read.output_at is not None
-                     and (read.purpose == "clear" or not self._line_redraw_sequence or self._line_sync.redrawn)
+                     and (not self._line_redraw_sequence or self._line_sync.redrawn)
                      and command is not None and now - read.output_at >= _SNAPSHOT_SETTLE)
             if ready and read.purpose == "clear":
                 if not command:
                     self._line_read = None
-                    self._finish_sensitive_input()
-                    self._set_mode("command")
-                    self._record_recovery("succeeded")
+                    self._line_sync.reset()
                     return
             elif ready:
                 self._line_read = None
@@ -521,16 +458,11 @@ class CommandGate:
                         else:
                             self._notify("\r\n\x1b[33m[安全审查] 待提交命令已清空，本次授权已取消\x1b[0m\r\n")
                 return
-            if now - read.started >= _SNAPSHOT_TIMEOUT:
-                if read.purpose == "clear":
-                    if read.notified:
-                        self._record_recovery("failed")
-                        self._notify("\r\n\x1b[31m[安全审查] 终端输入恢复失败，已结束当前连接；请点击终端标签旁的重新连接，无需刷新页面。\x1b[0m\r\n")
-                        raise ConnectionError("终端输入恢复失败")
-                    self._notify("\r\n\x1b[33m[安全审查] 尚未确认输入已清空，正在重新清行；可按 Ctrl+C 重试。\x1b[0m\r\n")
-                    self._recover_remote_line(source=read.source, retried=True)
-                    return
+            if now - read.started >= _SNAPSHOT_TIMEOUT and not read.notified:
                 read.notified = True
+                if read.purpose == "clear":
+                    self._notify("\r\n\x1b[33m[安全审查] 正在等待设备清空输入；可按 Ctrl+C 恢复提示符\x1b[0m\r\n")
+                    return
                 self._line_read = None
                 if read.purpose == "confirm" and self._pending_confirmation:
                     _, approved, _, source = self._pending_confirmation

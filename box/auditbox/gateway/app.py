@@ -44,7 +44,6 @@ from starlette.websockets import WebSocketState
 
 from auditbox.audit.logger import AUDIT_DIR
 from auditbox.audit.store import AuditStore, TABLES, redact, safe_audit
-from auditbox.audit.behavior import bounded_details, record_behavior
 from auditbox.branding import product_name
 from auditbox.console import list_console_ports, validate_console_path
 from auditbox.db import DB_PATH, init_db
@@ -356,82 +355,35 @@ def _actor(principal):
     return {"account": principal.username, "login_id": getattr(principal, "login_id", "") or None}
 
 
-def _user_behavior(action, *, context, result="success", **details):
-    return record_behavior(_audit_store(), action, context=context, result=result,
-                           audit_dir=AUDIT_DIR, **details)
-
-
 @app.middleware("http")
 async def business_behavior(request: Request, call_next):
     path = request.url.path
     tracked = request.method in {"POST", "PATCH", "DELETE", "PUT"} and (
-        path.startswith(("/api/devices", "/api/targets", "/api/connections", "/api/sessions",
-                         "/api/settings/", "/api/assistant/"))
-        and path != "/api/assistant/conversations"
-        and not path.endswith("/title")
+        path.startswith(("/api/devices", "/api/targets", "/api/connections", "/api/sessions", "/api/settings/ethernet", "/api/system/clock/"))
+        or (request.method == "DELETE" and path.startswith("/api/assistant/"))
     )
-    tracked = tracked or (request.method == "GET" and path == "/api/audit/export")
     principal, details = None, {}
     if tracked:
         try:
             principal = require_authenticated(request)
         except HTTPException:
             pass
-        if principal and request.headers.get("content-type", "").startswith("application/json"):
+        if request.headers.get("content-type", "").startswith("application/json"):
             try:
-                length = int(request.headers.get("content-length", "0"))
-                if 0 < length <= 131072:
-                    body = await request.json()
-                    if isinstance(body, dict):
-                        details = {key: body[key] for key in (
-                            "device_id", "address", "port", "protocol", "device_type", "device_profile",
-                            "remark", "notes", "username", "mode", "ip_address", "netmask",
-                            "message", "approved", "enabled", "name", "url", "transport", "tools",
-                        ) if key in body}
-            except ValueError:
+                body = await request.json()
+                details = {key: body[key] for key in (
+                    "device_id", "address", "port", "protocol", "device_type", "device_profile",
+                    "remark", "mode", "ip_address", "netmask", "client_time_ms"
+                ) if key in body}
+            except (ValueError, TypeError):
                 pass
     response = await call_next(request)
     if tracked:
-        safe_audit(lambda: _user_behavior(
+        safe_audit(lambda: _audit_store().behavior(
             f"{request.method} {path}", context=_actor(principal) if principal else {"account": "未认证"},
             result="success" if response.status_code < 400 else "failed", http_status=response.status_code,
-            changes=bounded_details(details)))
+            changes=details))
     return response
-
-
-class UserBehaviorEvent(BaseModel):
-    action: Literal["ui_click", "ui_change", "ui_input", "ui_submit", "ui_copy", "ui_paste", "ui_resize",
-                    "terminal_suggestion_applied", "terminal_copy", "terminal_paste"]
-    label: str = Field(default="", max_length=512)
-    section: str = Field(default="", max_length=255)
-    field: str = Field(default="", max_length=255)
-    value: str = Field(default="", max_length=4096)
-    redacted: bool = False
-    session_id: str = Field(default="", max_length=128)
-
-
-class UserBehaviorBatch(BaseModel):
-    events: list[UserBehaviorEvent] = Field(min_length=1, max_length=50)
-
-
-@app.post("/api/audit/behavior", status_code=204)
-async def user_behavior(payload: UserBehaviorBatch, request: Request):
-    principal = require_authenticated(request)
-    for event in payload.events:
-        context = _actor(principal)
-        session = _active_terminal_sessions.get(event.session_id)
-        if session and session.audit_context.get("login_id") == context["login_id"] and session.audit_context.get("account") == principal.username:
-            context = {**session.audit_context, **context}
-        details = event.model_dump(exclude={"action", "session_id"})
-        if event.action == "terminal_paste":
-            details.pop("value", None)
-        if event.redacted or re.search(
-            r"(?i)password|passwd|passphrase|secret|token|api[_-]?key|authorization|otp|verification[_-]?code|验证码|密码|口令|请求头",
-            event.field,
-        ):
-            details.update(value="[敏感输入已隐藏]", redacted=True)
-        safe_audit(lambda: _user_behavior(event.action, context=context, **details))
-    return Response(status_code=204)
 
 
 @app.get("/api/branding")
@@ -850,8 +802,6 @@ async def login(payload: LoginRequest, request: Request) -> LoginResponse:
             "account": payload.username[:255], "success": False, "reason": "用户名或密码错误",
             "client_ip": _client_ip(request), "user_agent": request.headers.get("user-agent", "")[:512],
         }))
-        safe_audit(lambda: _user_behavior("login_failed", context={"account": payload.username[:255]},
-                                        result="failed", reason="用户名或密码错误"))
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     # Authenticate first, calibrate second, issue the token last. Otherwise a
     # cold-boot clock jump immediately expires the newly issued login token.
@@ -861,7 +811,6 @@ async def login(payload: LoginRequest, request: Request) -> LoginResponse:
         "client_ip": _client_ip(request), "user_agent": request.headers.get("user-agent", "")[:512],
     })
     principal = Principal(principal.username, principal.role, login_record["id"])
-    safe_audit(lambda: _user_behavior("login", context=_actor(principal)))
     return LoginResponse(
         token=issue_access_token(principal),
         username=principal.username,
@@ -1549,12 +1498,8 @@ async def agent_audit_event(request: Request):
     _require_loopback_agent(request)
     payload = await request.json()
     context = payload.get("context") or {}
-    action = payload.get("action")
-    if action not in {"agent_approved", "agent_rejected"}:
-        raise HTTPException(status_code=422, detail="仅记录用户的助手审批操作")
-    details = {key: value for key, value in (payload.get("details") or {}).items()
-               if key in {"conversation_id", "run_id", "tool_call_id", "tool_name", "command"}}
-    return _user_behavior(action, context=context, **details)
+    return _audit_store().behavior(str(payload.get("action") or "agent_approval")[:100],
+                                  context=context, **redact(payload.get("details") or {}))
 
 
 @app.get("/api/box/info")
@@ -1602,7 +1547,7 @@ async def install_device_capability(request: Request, expected_box_id: str):
         result = install(bytes(payload))
     except (ValueError, TypeError, KeyError, OSError, EOFError, tarfile.TarError, zlib.error) as exc:
         raise HTTPException(422, "能力包校验或安装失败：" + str(exc)) from exc
-    safe_audit(lambda: _user_behavior("capability_installed", context=_actor(principal),
+    safe_audit(lambda: _audit_store().behavior("capability_installed", context=_actor(principal),
         profile_id=result["profile_id"], version=result["version"], already_installed=result["already_installed"]))
     return result
 
@@ -1748,6 +1693,7 @@ async def _bridge_terminal_session(websocket: WebSocket, request: ConnectRequest
                 input_notifier=websocket.send_json,
             )
             _active_terminal_sessions[session_id] = shared_session
+            safe_audit(lambda: _audit_store().behavior("terminal_connected", context=shared_session.audit_context))
         await websocket.send_json({"type": "handshake", **response})
 
         if response.get("status") != "ok":
@@ -1787,6 +1733,7 @@ async def _bridge_terminal_session(websocket: WebSocket, request: ConnectRequest
             await websocket.send_json({"type": "error", "message": str(exc)})
     finally:
         if shared_session:
+            safe_audit(lambda: _audit_store().behavior("terminal_disconnected", context=shared_session.audit_context))
             if _active_terminal_sessions.get(shared_session.session_id) is shared_session:
                 _active_terminal_sessions.pop(shared_session.session_id, None)
             await shared_session.close()
@@ -2193,8 +2140,6 @@ def _safe_csv_value(value: Any) -> str:
         text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     else:
         text = str(value)
-    # Python 3.10's CSV writer treats a NUL as an unset escape character.
-    text = text.replace("\x00", r"\x00")
     # Prevent a command or remark from becoming an Excel formula when the CSV
     # is opened on Windows. Leading whitespace must be considered as well.
     stripped = text.lstrip()

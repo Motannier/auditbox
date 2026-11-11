@@ -41,16 +41,16 @@ class _PendingReview:
 
 
 class ReviewPreempted(Exception):
-    """The assistant took priority; retry the review afterwards."""
+    """The assistant took priority; retry the latest snapshot afterwards."""
 
 
 class HistoryRiskReviewer:
-    """Review every model command and coalesce rule snapshots on a background worker."""
+    """Coalesce command snapshots and review them on one background worker."""
 
     def __init__(self, callback: Callable[[str, dict], None], *, worker_name: str = "auditbox-history-review"):
         self._callback = callback
         self._condition = threading.Condition()
-        self._pending: dict[tuple[str, int], _PendingReview] = {}
+        self._pending: dict[str, _PendingReview] = {}
         self._discarded: set[str] = set()
         self._closed = False
         self._worker = threading.Thread(
@@ -72,27 +72,19 @@ class HistoryRiskReviewer:
     ) -> None:
         now = time.monotonic()
         snapshot = [dict(item) for item in history[-AUDITBOX_HISTORY_REVIEW_WINDOW:]]
-        profile = normalize_device_profile(device_profile) or LINUX
-        rule_review = uses_rule_review(profile)
-        key = (session_id, 0 if rule_review else _last_sequence(snapshot))
         with self._condition:
             self._discarded.discard(session_id)
-            if not rule_review and history:
-                oldest = _last_sequence(history[:1])
-                for queued in tuple(self._pending):
-                    if queued[0] == session_id and queued[1] < oldest:
-                        del self._pending[queued]
-            previous = self._pending.get(key)
+            previous = self._pending.get(session_id)
             first_queued_at = previous.first_queued_at if previous else now
             ready_at = min(
                 now + AUDITBOX_HISTORY_REVIEW_INTERVAL,
                 first_queued_at + max(AUDITBOX_HISTORY_REVIEW_INTERVAL * 2, 3.0),
-            ) if rule_review else first_queued_at
-            self._pending[key] = _PendingReview(
+            )
+            self._pending[session_id] = _PendingReview(
                 session_id=session_id,
                 protocol=protocol,
                 device_type=device_type,
-                device_profile=profile,
+                device_profile=normalize_device_profile(device_profile) or LINUX,
                 history=snapshot,
                 first_queued_at=first_queued_at,
                 ready_at=ready_at,
@@ -103,9 +95,7 @@ class HistoryRiskReviewer:
     def discard(self, session_id: str) -> None:
         with self._condition:
             self._discarded.add(session_id)
-            for key in tuple(self._pending):
-                if key[0] == session_id:
-                    del self._pending[key]
+            self._pending.pop(session_id, None)
 
     def close(self) -> None:
         with self._condition:
@@ -114,14 +104,13 @@ class HistoryRiskReviewer:
 
     def _run(self) -> None:
         while True:
-            job = self._next_pending()
-            if job is None:
+            pending = self._next_pending()
+            if pending is None:
                 return
-            key, pending = job
             try:
                 result = _review_history(pending)
             except ReviewPreempted:
-                self._requeue_after_preemption(key, pending)
+                self._requeue_after_preemption(pending)
                 continue
             except Exception as exc:
                 is_rule_review = uses_rule_review(pending.device_profile)
@@ -145,26 +134,29 @@ class HistoryRiskReviewer:
             except Exception as exc:
                 log.warning("[%s] 智能审查回调失败: %s", pending.session_id, exc)
 
-    def _requeue_after_preemption(self, key: tuple[str, int], pending: _PendingReview) -> None:
+    def _requeue_after_preemption(self, pending: _PendingReview) -> None:
         with self._condition:
             if self._closed or pending.session_id in self._discarded:
                 return
-            self._pending.setdefault(key, pending)
+            if pending.session_id not in self._pending:
+                pending.first_queued_at = time.monotonic()
+                pending.ready_at = pending.first_queued_at
+                self._pending[pending.session_id] = pending
             self._condition.notify()
         log.info("[%s] 智能审查已为运维助手让路，稍后重试", pending.session_id)
 
-    def _next_pending(self) -> tuple[tuple[str, int], _PendingReview] | None:
+    def _next_pending(self) -> _PendingReview | None:
         with self._condition:
             while not self._closed:
                 if not self._pending:
                     self._condition.wait()
                     continue
-                key, next_item = min(self._pending.items(), key=lambda item: item[1].ready_at)
+                next_item = min(self._pending.values(), key=lambda item: item.ready_at)
                 remaining = next_item.ready_at - time.monotonic()
                 if remaining > 0:
                     self._condition.wait(timeout=remaining)
                     continue
-                return key, self._pending.pop(key)
+                return self._pending.pop(next_item.session_id)
             return None
 
 

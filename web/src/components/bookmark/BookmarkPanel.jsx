@@ -10,7 +10,7 @@ import {
 const DEVICE_PANEL_MIN_WIDTH = 220;
 const DEVICE_PANEL_MAX_WIDTH = 420;
 const DEVICE_PANEL_DEFAULT_WIDTH = 280;
-const DEVICE_PANEL_COLLAPSED_WIDTH = 32;
+const DEVICE_PANEL_COLLAPSED_WIDTH = 1;
 const DEVICE_PANEL_WIDTH_KEY = "auditbox-device-panel-width";
 
 function clampPanelWidth(width) {

@@ -5,7 +5,6 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { checkClientDeviceFlow } from "./client-device-ui-check.mjs";
-import { checkConsolePorts } from "./console-ports-check.mjs";
 import { DEFAULT_PRODUCT_NAME } from "../src/constants/branding.js";
 import { buildOfflineGuide, createInitialGuideForm, guideScenarios } from "../src/lib/guide/index.js";
 
@@ -183,7 +182,6 @@ try {
   let routedSocketCloseCount = 0;
   let confirmedDangerExecutionCount = 0;
   let cancelledDangerCount = 0;
-  let disconnectAfterCancellation = false;
   let dangerConfirmationSequence = 0;
   const pendingDangerCommands = new Map();
   const submittedCommands = [];
@@ -578,7 +576,6 @@ try {
       routedSocketCloseCount += 1;
     });
     ws.send(JSON.stringify({ type: "handshake", status: "ok", session_id: "mock-proxy" }));
-    ws.send("\r\n<H3C> ");
     ws.onMessage((message) => {
       let text = String(message);
       if (text.startsWith('{"type":"terminal_input"')) {
@@ -602,11 +599,6 @@ try {
         } else if (control.type === "command_confirmation_cancel" && command) {
           cancelledDangerCount += 1;
           pendingDangerCommands.delete(control.confirmation_id);
-          if (disconnectAfterCancellation) {
-            ws.send("\r\n[安全审查] 终端输入恢复失败，已结束当前连接；请点击终端标签旁的重新连接，无需刷新页面。\r\n");
-            ws.close({ code: 1000, reason: "input recovery failed" });
-            return;
-          }
           ws.send(`\r\n[${DEFAULT_PRODUCT_NAME}] 已取消高危命令\r\n# `);
         }
         return;
@@ -975,7 +967,7 @@ try {
 
   const workspace = page.locator(".workspace");
   const initialColumns = await workspace.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
-  const workspaceBox = await page.locator(".left-panel").boundingBox();
+  const workspaceBox = await workspace.boundingBox();
   const expandedToggle = page.getByRole("button", { name: "收起设备列表" });
   const expandedToggleBox = await expandedToggle.boundingBox();
   if (
@@ -989,12 +981,12 @@ try {
   await expandedToggle.click();
   await page.locator(".left-panel.collapsed").waitFor();
   await page.waitForFunction(() =>
-    getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("32px"),
+    getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("1px"),
   );
   const collapsedColumns = await workspace.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
   const collapsedToggle = page.getByRole("button", { name: "展开设备列表" });
   await collapsedToggle.waitFor();
-  if (collapsedColumns === initialColumns || !collapsedColumns.startsWith("32px")) {
+  if (collapsedColumns === initialColumns || !collapsedColumns.startsWith("1px")) {
     throw new Error(`Device panel did not collapse: before=${initialColumns}; after=${collapsedColumns}`);
   }
   if (await page.locator(".left-panel").getByRole("button", { name: "新建安全连接" }).isVisible()) {
@@ -1004,8 +996,7 @@ try {
   if (
     !workspaceBox ||
     !collapsedToggleBox ||
-    Math.abs(collapsedToggleBox.x - workspaceBox.x) > 2 ||
-    collapsedToggleBox.x + collapsedToggleBox.width > workspaceBox.x + 32 ||
+    Math.abs(collapsedToggleBox.x - (workspaceBox.x + 1)) > 2 ||
     Math.abs(collapsedToggleBox.y + collapsedToggleBox.height / 2 - (workspaceBox.y + workspaceBox.height / 2)) > 2
   ) {
     throw new Error(
@@ -1150,30 +1141,6 @@ try {
   await targetConnectDialog.getByRole("button", { name: "连接" }).click();
 
   await page.locator(".xterm").waitFor({ timeout: 5_000 });
-  for (const width of [1280, 1920, 1024]) {
-    await page.setViewportSize({ width, height: 820 });
-    await page.getByRole("button", { name: "收起设备列表", exact: true }).click();
-    await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("32px"),
-    );
-    const uncovered = await page.locator(".device-panel-edge-toggle").evaluate((button) => {
-      const toggle = button.getBoundingClientRect();
-      const terminal = document.querySelector(".terminal-area").getBoundingClientRect();
-      const xterm = document.querySelector(".terminal-session.active .xterm");
-      const screen = xterm.getBoundingClientRect();
-      const hit = document.elementFromPoint(screen.left + 2, toggle.top + toggle.height / 2);
-      return toggle.right <= terminal.left && !!hit && xterm.contains(hit);
-    });
-    if (!uncovered) throw new Error(`Collapsed device toggle covers terminal output at ${width}px`);
-    if (process.env.WEBUI_TEST_COLLAPSED_SCREENSHOT && width === 1280) {
-      await page.screenshot({ path: process.env.WEBUI_TEST_COLLAPSED_SCREENSHOT, fullPage: true });
-    }
-    await page.getByRole("button", { name: "展开设备列表", exact: true }).click();
-    await page.waitForFunction(() =>
-      !getComputedStyle(document.querySelector(".workspace")).gridTemplateColumns.startsWith("32px"),
-    );
-  }
-  await page.setViewportSize({ width: 1280, height: 820 });
   await page.getByRole("tab", { name: "运维助手" }).click();
   await page.waitForFunction(() => document.querySelector(".assistant-context")?.textContent.includes("核心交换机"));
   if (!assistantConversationQueries.includes("device-1")) {
@@ -1867,10 +1834,6 @@ try {
   if (confirmedDangerExecutionCount !== 1 || lastExecutedCommand !== "sudo reboot") {
     throw new Error("Confirmed danger command did not execute exactly once");
   }
-  await page.waitForFunction(() => {
-    const cursor = document.querySelector(".terminal-session.active .xterm-cursor");
-    return cursor?.closest(".xterm-rows > div")?.textContent.replace(/\u00a0/g, " ").trimEnd().endsWith("#");
-  });
 
   await page.evaluate(() => document.querySelector(".terminal-session.active .xterm-helper-textarea")?.focus());
   await page.keyboard.type("rm -rf");
@@ -2037,38 +2000,7 @@ try {
   }
   await page.keyboard.press("Escape");
 
-  disconnectAfterCancellation = true;
-  const tabsBeforeRecovery = await page.locator(".session-tab").count();
-  await page.evaluate(() => {
-    window.__cancelRecoverySentinel = "same-page";
-    document.querySelector(".terminal-session.active .xterm-helper-textarea")?.focus();
-  });
-  await page.keyboard.press("Control+U");
-  await page.keyboard.type("rm -rf *");
-  await page.keyboard.press("Enter");
-  await page.getByRole("dialog", { name: "高危操作确认" }).waitFor({ timeout: 5_000 });
-  await page.getByRole("dialog", { name: "高危操作确认" }).getByRole("button", { name: "取消操作", exact: true }).click();
-  await page.locator(".terminal-reconnect").getByRole("button", { name: "重新连接", exact: true }).waitFor();
-  await page.getByRole("dialog", { name: "高危操作确认" }).waitFor({ state: "detached" });
-  if (process.env.WEBUI_TEST_RECOVERY_SCREENSHOT) {
-    await page.screenshot({ path: process.env.WEBUI_TEST_RECOVERY_SCREENSHOT, fullPage: true });
-  }
-  await page.locator(".session-tab.active .session-tab-refresh").click();
-  await page.locator(".session-tab.active .session-status-dot.connected").waitFor();
-  await page.evaluate(() => document.querySelector(".terminal-session.active .xterm-helper-textarea")?.focus());
-  await page.keyboard.type("recovery-check");
-  await page.keyboard.press("Enter");
-  const recoveryDeadline = Date.now() + 3_000;
-  while (lastExecutedCommand !== "recovery-check" && Date.now() < recoveryDeadline) await delay(25);
-  if (
-    lastExecutedCommand !== "recovery-check" ||
-    await page.evaluate(() => window.__cancelRecoverySentinel) !== "same-page" ||
-    await page.locator(".session-tab").count() !== tabsBeforeRecovery
-  ) throw new Error("Cancelled input recovery required a page reload or lost terminal tabs");
-  if (pageErrors.length) throw new Error(`Page errors during recovery: ${pageErrors.join("\n")}`);
-
   await checkClientDeviceFlow(browser, url);
-  await checkConsolePorts(browser, url);
 } finally {
   if (browser) await browser.close();
   server.kill();

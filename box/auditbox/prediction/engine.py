@@ -55,7 +55,8 @@ class PredictionEngine:
             if AUDITBOX_HISTORY_REVIEW_ENABLED
             else None
         )
-        # Rule-only devices do not wait behind H3C/Linux inference.
+        # A long-running H3C/Linux model review must not queue rule-only devices
+        # behind inference. Both workers retain session-local snapshot coalescing.
         self._rules_reviewer = (
             HistoryRiskReviewer(self._on_review_result, worker_name="auditbox-rule-history-review")
             if AUDITBOX_HISTORY_REVIEW_ENABLED
@@ -127,11 +128,8 @@ class PredictionEngine:
                 return False
             self._subscribers[session_id].append(sock)
             payload = self._review_payload_locked(session_id)
-            state = self._sessions[session_id].get("terminal_state")
         try:
             sock.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode())
-            if state:
-                sock.sendall((json.dumps(state) + "\n").encode())
         except OSError:
             self.remove_subscriber(session_id, sock)
             return False
@@ -225,19 +223,6 @@ class PredictionEngine:
                     current = self._subscribers.get(session_id, [])
                     self._subscribers[session_id] = [s for s in current if s not in dead]
 
-    def on_terminal_state(self, session_id: str, state: dict) -> None:
-        payload = {"type": "terminal_state", "mode": state["mode"], "version": state["version"]}
-        with self._lock:
-            session = self._sessions.get(session_id)
-            if session is None:
-                return
-            previous = session.get("terminal_state")
-            if previous and previous["version"] >= payload["version"]:
-                return
-            session["terminal_state"] = payload
-            subs = list(self._subscribers.get(session_id, []))
-        self._push_payload(session_id, payload, subs)
-
     def on_command(
         self,
         session_id: str,
@@ -288,7 +273,6 @@ class PredictionEngine:
                 }
             recommendation_state = sess["recommendation_state"].snapshot()
             sess["review"] = _queued_review(sess["review"], entry["seq"])
-            entry["review_token"] = sess["review"]["review_token"]
             history = [dict(item) for item in sess["history"]]
             device_type = sess["device_type"]
             device_profile = sess["device_profile"]
@@ -369,10 +353,9 @@ class PredictionEngine:
                 if entry.get("seq") == sequence:
                     entry["status"] = "failed"
                     entry.pop("review", None)
-                    sess["review"] = _queued_review(sess["review"], sequence)
-                    entry["review_token"] = sess["review"]["review_token"]
                     break
             subs = list(self._subscribers.get(session_id, []))
+            sess["review"] = _queued_review(sess["review"], sequence)
             review_payload = self._review_payload_locked(session_id)
             snapshot = ([dict(item) for item in sess["history"]], sess["protocol"],
                         sess["device_type"], sess["device_profile"])
@@ -468,40 +451,23 @@ class PredictionEngine:
             session = self._sessions.get(session_id)
             if not session:
                 return
-            rule_based = uses_rule_review(session["device_profile"])
-            sequence = result.get("reviewed_through_seq")
-            token = result.get("review_token")
-            latest = (sequence == session["next_sequence"] - 1
-                      and token == session["review"].get("review_token"))
-            if not token:
+            if (not result.get("review_token")
+                    or result["review_token"] != session["review"].get("review_token")
+                    or result.get("reviewed_through_seq") != session["next_sequence"] - 1):
+                log.debug("[%s] 忽略过期旁路审查结果", session_id)
                 return
-            history = session["history"]
-            if not latest:
-                if rule_based:
-                    return
-                # Only the matching model job may fill a prior command's row.
-                history = [item for item in history if item["seq"] == sequence
-                           and item.get("review_token") == token]
-            applied = []
+            # A review belongs to this session only. It neither controls the
+            # relay nor changes other sessions connected to the same target.
             for finding in result.get("findings", []):
-                for item in history:
-                    if (item["seq"] == finding.get("seq") and item["status"] == finding.get("status")
-                            and item.get("review") != finding):
+                for item in session["history"]:
+                    if item["seq"] == finding.get("seq") and item["status"] == finding.get("status"):
                         item["review"] = dict(finding)
-                        applied.append(finding)
-                        break
-            if latest:
-                result["review_revision"] = session["review"]["review_revision"]
-                session["review"] = result
-            elif applied:
-                # A late model verdict updates its history row only. Give the
-                # enriched snapshot a newer revision than the earlier queued one.
-                session["review"]["review_revision"] += 1
-            else:
-                return
+            result["review_revision"] = session["review"]["review_revision"]
+            session["review"] = result
             payload = self._review_payload_locked(session_id)
             subs = list(self._subscribers.get(session_id, []))
             audit_callback = self._audit_handlers.get(session_id)
+            rule_based = uses_rule_review(session["device_profile"])
 
         if subs:
             self._push_payload(session_id, payload, subs)
@@ -518,7 +484,7 @@ class PredictionEngine:
                 "findings": [
                     f"seq={item['seq']} risk={item['risk']} status={item['status']} "
                     f"rule={item['code']} source={item.get('rule_id', '')}"
-                    for item in applied
+                    for item in result.get("findings", [])
                 ],
             }
             if rule_based:
@@ -536,8 +502,7 @@ class PredictionEngine:
             **advisory_review(session["review"]),
             "review_source": "rules" if uses_rule_review(session["device_profile"]) else "model",
             "device_profile": session["device_profile"],
-            "history": [{key: value for key, value in item.items() if key != "review_token"}
-                        for item in session["history"][-20:]],
+            "history": [dict(item) for item in session["history"][-20:]],
             "findings": [dict(item["review"]) for item in session["history"][-20:] if item.get("review")],
             "process": _review_process(session["review"]),
         }

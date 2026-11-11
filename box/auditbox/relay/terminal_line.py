@@ -36,19 +36,6 @@ class TerminalLineSync:
         self.reset()
 
     @property
-    def visible_line(self) -> str | None:
-        """Current VT row, only after a complete, supported output sequence."""
-        if (not self._reliable or self._escape_buf is not None
-                or self._control_string or self._decoder.getstate()[0]):
-            return None
-        return self._line
-
-    @property
-    def at_prompt(self) -> bool:
-        line = self.visible_line
-        return line is not None and line.strip() != ">" and _prompt_end(line) == len(line)
-
-    @property
     def line(self) -> str:
         return extract_command_from_redraw(self._line)
 

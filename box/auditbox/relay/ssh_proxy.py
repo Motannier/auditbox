@@ -142,7 +142,6 @@ class SSHProxy:
             client_send=client_sock.sendall,
             device_profile=self._device_profile,
             input_framing=self._input_framing,
-            require_command_prompt=self._input_framing,
         )
         if self._on_confirmation_ready:
             self._on_confirmation_ready(command_gate.confirm, command_gate.cancel_confirmation)

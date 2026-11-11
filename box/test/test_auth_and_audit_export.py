@@ -122,7 +122,7 @@ def test_csv_export_is_utf8_excel_friendly_and_formula_safe(tmp_path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "legacy-session.jsonl").write_text(
-        json.dumps({"event": "command", "command": "ls\x00", "ts": "old"}) + "\n",
+        json.dumps({"event": "command", "command": "ls", "ts": "old"}) + "\n",
         encoding="utf-8",
     )
 
@@ -130,4 +130,4 @@ def test_csv_export_is_utf8_excel_friendly_and_formula_safe(tmp_path) -> None:
     assert exported.startswith("\ufeff账号,时间,会话 ID")
     rows = list(csv.reader(io.StringIO(exported.lstrip("\ufeff"))))
     assert any(row[0] == "系统管理员" and row[6].startswith("'=") for row in rows[1:])
-    assert any(row[0] == "历史记录" and row[2] == "legacy-session" and row[6] == r"ls\x00" for row in rows[1:])
+    assert any(row[0] == "历史记录" and row[2] == "legacy-session" for row in rows[1:])

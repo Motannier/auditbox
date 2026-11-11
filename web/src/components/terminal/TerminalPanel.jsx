@@ -1,7 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { ClipboardPaste, Copy, RefreshCw, Square } from "lucide-react";
 import { fetchCommandSuggestions } from "../../services/commandService.js";
-import { recordUserAction } from "../../lib/userAudit.js";
 import { terminalTheme } from "../../config/terminalTheme.js";
 import { connectionEndpointLabel, protocolDisplayName } from "../../lib/connection.js";
 import { advisoryReview, staleReviewUpdate } from "../../lib/operationReview.js";
@@ -43,18 +42,13 @@ function stripTerminalControl(text) {
 
 function looksLikeSensitivePrompt(text) {
   const tail = String(text || "").replace(/\r/g, "").split("\n").at(-1) || "";
-  return /^[^#>$\n]{0,160}(?:username|user\s*name|login|用户名|账号|password|passwd|passphrase|口令|密码|验证码|token|secret)[^\n]{0,96}[:：]\s*$/i.test(tail);
-}
-
-function looksLikeInteractionPrompt(text) {
-  return /^\s*(?:[-—─]{2,}\s*more\b.{0,120}|more:)\s*$/i.test(text)
-    || /(?:\[(?:y\/n|yes\/no|confirm)\]|\((?:y\/n|yes\/no)\))\s*[:?：？]?\s*$/i.test(text);
+  return /(?:password|passwd|passphrase|口令|密码|验证码|token|secret)[^\n]{0,96}[:：]\s*$/i.test(tail);
 }
 
 function looksLikeTerminalPrompt(text) {
   const lines = String(text || "").replace(/\r/g, "").split("\n");
   const tail = (lines.at(-1) || "").trimEnd();
-  if (!tail || tail === ">" || tail.length > 120 || looksLikeSensitivePrompt(tail)) return false;
+  if (!tail || tail.length > 120 || looksLikeSensitivePrompt(tail)) return false;
   return /(?:^|\s)[^\n]{0,110}[#$>%]\s*$/.test(tail) || /^\[[^\]\n]{1,100}\]\s*$/.test(tail);
 }
 
@@ -67,7 +61,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   const termRef = useRef(null);
   const fitAddonRef = useRef(null);
   const socketRef = useRef(null);
-  const auditSessionIdRef = useRef("");
   const connectionFailureRef = useRef(null);
   const targetRef = useRef(target);
   const onStatusChangeRef = useRef(onStatusChange);
@@ -98,9 +91,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   const guideSensitiveInputRef = useRef(false);
   const terminalSensitiveInputRef = useRef(false);
   const terminalOutputTailRef = useRef("");
-  const terminalModeRef = useRef("unknown");
-  const terminalStateVersionRef = useRef(0);
-  const serverTerminalModeRef = useRef("unknown");
   const activeRef = useRef(active);
   const clipboardRequestRef = useRef(0);
   const [suggestions, setSuggestions] = useState([]);
@@ -296,7 +286,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     const text = termRef.current?.getSelection();
     setClipboardMenu(null);
     if (!text) return;
-    recordUserAction("terminal_copy", { section: "终端", label: "复制选中文本", session_id: auditSessionIdRef.current });
     const request = ++clipboardRequestRef.current;
     const copied = await writeTerminalClipboard(text);
     if (request !== clipboardRequestRef.current || !activeRef.current || !termRef.current) return;
@@ -366,8 +355,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     }
     clearCommandSuggestions();
     currentCommandSourceRef.current = "human";
-    recordUserAction("terminal_paste", { section: "终端", field: "command",
-      redacted: terminalSensitiveInputRef.current, session_id: auditSessionIdRef.current });
     handleTerminalData(text);
     setClipboardNotice("已粘贴，按 Enter 提交");
     termRef.current?.focus();
@@ -387,8 +374,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
         termRef.current?.focus();
         return;
       }
-      recordUserAction("terminal_paste", { section: "终端", field: "command",
-        session_id: auditSessionIdRef.current });
       startCommandQueue({ kind: "clipboard", title: "粘贴命令", commands: text.split("\n") });
     } else {
       insertClipboardText(text);
@@ -567,9 +552,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     guideSensitiveInputRef.current = false;
     terminalSensitiveInputRef.current = false;
     terminalOutputTailRef.current = "";
-    terminalModeRef.current = "unknown";
-    terminalStateVersionRef.current = 0;
-    serverTerminalModeRef.current = "unknown";
     if (guideQueueRef.current && !["completed", "cancelled"].includes(guideQueueRef.current.status)) {
       pauseGuideQueue("终端已重新初始化，请确认连接后继续");
     }
@@ -586,7 +568,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     const command = commandText.trim();
     if (
       !command
-      || terminalModeRef.current !== "command"
       || socketRef.current?.readyState !== WebSocket.OPEN
     ) return false;
     resetCommandInput();
@@ -637,10 +618,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     }
     if (socketRef.current?.readyState !== WebSocket.OPEN) {
       pauseGuideQueue("终端连接不可用，队列已暂停");
-      return false;
-    }
-    if (terminalModeRef.current !== "command") {
-      pauseGuideQueue("设备尚未返回命令提示符，队列已暂停");
       return false;
     }
 
@@ -795,14 +772,14 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     guideOutputTailRef.current = `${guideOutputTailRef.current}${plain}`.slice(-4096);
     guideSensitiveInputRef.current = looksLikeSensitivePrompt(guideOutputTailRef.current);
     clearGuidePromptTimer();
-    if (terminalModeRef.current === "command" && !guideSensitiveInputRef.current && looksLikeTerminalPrompt(guideOutputTailRef.current)) {
+    if (!guideSensitiveInputRef.current && looksLikeTerminalPrompt(guideOutputTailRef.current)) {
       completeGuideCommand(queue);
       return;
     }
     guidePromptTimerRef.current = window.setTimeout(() => {
       guidePromptTimerRef.current = null;
       const currentQueue = guideQueueRef.current;
-      if (!currentQueue || currentQueue.status !== "waiting" || guideSensitiveInputRef.current || terminalModeRef.current !== "command") return;
+      if (!currentQueue || currentQueue.status !== "waiting" || guideSensitiveInputRef.current) return;
       if (looksLikeTerminalPrompt(guideOutputTailRef.current)) {
         completeGuideCommand(currentQueue);
       }
@@ -874,9 +851,14 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   function handleTerminalData(data) {
     if (pendingConfirmationRef.current) return;
     clearShellFocusPaddingTimer();
-    if (terminalModeRef.current !== "command" || terminalSensitiveInputRef.current) {
+    if (terminalSensitiveInputRef.current) {
       clearCommandSuggestions();
       sendTerminalData(data);
+      if (data === "\r" || data === "\n") {
+        terminalSensitiveInputRef.current = false;
+        terminalOutputTailRef.current = "";
+        resetCommandInput();
+      }
       return;
     }
     if (handleSuggestionKey(data)) return;
@@ -896,22 +878,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     }
     trackCommandInput(data);
     if (isEnter) handleGuideSubmission(submittedCommand);
-    if (isEnter) setTerminalMode("running");
     sendTerminalData(data, source);
-  }
-
-  function setTerminalMode(mode) {
-    terminalModeRef.current = mode;
-    terminalSensitiveInputRef.current = mode === "auth" || mode === "secret";
-    if (mode !== "command") clearCommandSuggestions();
-    if (["unknown", "auth", "secret", "pager", "interaction"].includes(mode)) {
-      suppressProgrammaticSuggestions();
-      resetCommandInput();
-      if (guideQueueRef.current?.status === "waiting") {
-        pauseGuideQueue("设备正在等待交互输入，命令队列已暂停");
-      }
-    }
-    if (mode === "command" && !pendingConfirmationRef.current) restoreCommandRecommendations();
   }
 
   function handleSuggestionKey(data) {
@@ -1038,8 +1005,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
 
   function scheduleCommandSuggestions() {
     if (
-      terminalModeRef.current !== "command"
-      || currentCommandSourceRef.current !== "human"
+      currentCommandSourceRef.current !== "human"
       || (guideQueueRef.current?.kind === "clipboard" && guideQueueSuppressesRecommendations(guideQueueRef.current))
       || !inputTrackingValidRef.current
       || pendingConfirmationRef.current
@@ -1049,7 +1015,10 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
       return;
     }
     const prefix = currentCommandRef.current.slice(0, commandCursorRef.current).trimStart();
-    clearCommandSuggestions();
+    if (suggestionTimerRef.current) {
+      window.clearTimeout(suggestionTimerRef.current);
+      suggestionTimerRef.current = null;
+    }
     if (prefix.length < 1) {
       clearCommandSuggestions();
       return;
@@ -1063,7 +1032,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
           target: targetRef.current,
           limit: 8,
         });
-        if (suggestionSeqRef.current !== seq || terminalModeRef.current !== "command") return;
+        if (suggestionSeqRef.current !== seq) return;
         const seen = new Set();
         const filtered = items.filter((item) => {
           if (
@@ -1088,9 +1057,7 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
 
   function restoreCommandRecommendations() {
     if (
-      terminalModeRef.current !== "command"
-      || pendingConfirmationRef.current
-      || !recommendationEligibleRef.current
+      !recommendationEligibleRef.current
       || guideQueueSuppressesRecommendations(guideQueueRef.current)
       || !inputTrackingValidRef.current
       || currentCommandRef.current
@@ -1108,14 +1075,11 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   }
 
   function applySelectedSuggestion(index = selectedSuggestionRef.current) {
-    if (terminalModeRef.current !== "command") return;
     const item = suggestionsRef.current[index];
     if (!item) return;
     const currentCommand = currentCommandRef.current;
     const cursor = commandCursorRef.current;
     const replacement = item.command;
-    recordUserAction("terminal_suggestion_applied", { section: "终端", label: isRecommendationSuggestion(item) ? "选用推荐命令" : "选用补全命令",
-      field: "command", value: replacement, session_id: auditSessionIdRef.current });
     clearShellFocusPaddingTimer();
     clearCommandSuggestions();
     currentCommandRef.current = replacement;
@@ -1212,14 +1176,12 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
       terminal.writeln("\x1b[32m终端通道已连接\x1b[0m");
     };
     socket.onmessage = async (event) => {
-      if (socketRef.current !== socket) return;
       if (typeof event.data === "string") {
         writeSocketText(event.data);
         return;
       }
       if (event.data instanceof Blob) {
         const buffer = await event.data.arrayBuffer();
-        if (socketRef.current !== socket) return;
         writeTerminalOutput(decoderRef.current.decode(buffer));
         return;
       }
@@ -1243,9 +1205,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
   }
 
   function reportConnectionFailure(message, code = "connection_failed") {
-    setTerminalMode("unknown");
-    pendingConfirmationRef.current = null;
-    setPendingConfirmation(null);
     connectionFailureRef.current = { message, code };
     recommendationSuggestionsRef.current = [];
     clearCommandSuggestions();
@@ -1268,7 +1227,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
             );
           }
           onStatusChangeRef.current?.("connected", "", "", String(event.session_id || ""));
-          auditSessionIdRef.current = String(event.session_id || "");
         } else {
           const message = event.message || "代理握手失败";
           terminal.writeln(`\x1b[31m代理握手失败：${message}\x1b[0m`);
@@ -1293,20 +1251,11 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
         resetCommandInput();
         return;
       }
-      if (event.type === "terminal_state") {
-        if (!Number.isInteger(event.version) || event.version <= terminalStateVersionRef.current) return;
-        if (!["unknown", "command", "auth", "secret", "pager", "interaction", "running", "confirmation", "recovering"].includes(event.mode)) return;
-        terminalStateVersionRef.current = event.version;
-        serverTerminalModeRef.current = event.mode;
-        setTerminalMode(event.mode);
-        return;
-      }
       if (event.type === "recommendation" || event.type === "prediction") {
         if (
           !recommendationEligibleRef.current
           || (event.input_source && event.input_source !== "human")
           || pendingConfirmationRef.current
-          || ["unknown", "auth", "secret", "pager", "interaction", "recovering"].includes(terminalModeRef.current)
           || targetRef.current?.status !== "connected"
         ) {
           recommendationSuggestionsRef.current = [];
@@ -1360,7 +1309,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
           clearCommandSuggestions();
           pendingConfirmationRef.current = nextConfirmation;
           setPendingConfirmation(nextConfirmation);
-          setTerminalMode("confirmation");
           const queue = guideQueueRef.current;
           if (queue?.status === "waiting") {
             const nextQueue = cloneGuideQueue(queue);
@@ -1397,19 +1345,12 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     shellFocusPaddingSignatureRef.current = "";
     const plain = stripTerminalControl(text);
     terminalOutputTailRef.current = `${terminalOutputTailRef.current}${plain}`.slice(-512);
-    if (looksLikeSensitivePrompt(terminalOutputTailRef.current)) setTerminalMode("secret");
+    if (looksLikeSensitivePrompt(terminalOutputTailRef.current)) terminalSensitiveInputRef.current = true;
+    if (looksLikeTerminalPrompt(terminalOutputTailRef.current)) terminalSensitiveInputRef.current = false;
+    trackGuideTerminalOutput(text);
     pendingTerminalWritesRef.current += 1;
     terminal.write(text, () => {
       pendingTerminalWritesRef.current = Math.max(0, pendingTerminalWritesRef.current - 1);
-      const buffer = terminal.buffer.active;
-      const row = buffer.getLine(buffer.baseY + buffer.cursorY)?.translateToString(true) || "";
-      if (looksLikeSensitivePrompt(row)) setTerminalMode("secret");
-      else if (looksLikeInteractionPrompt(row)) setTerminalMode("interaction");
-      // Older proxy versions have no state channel. Use a visible ready prompt
-      // only as a compatibility fallback; new proxies own positive transitions.
-      else if ((!terminalStateVersionRef.current || serverTerminalModeRef.current === "command")
-          && looksLikeTerminalPrompt(row)) setTerminalMode("command");
-      trackGuideTerminalOutput(text);
       scheduleShellFocusPadding(outputRevision);
       if (suggestionsRef.current.length) scheduleCommandSuggestionPlacement();
     });
@@ -1424,9 +1365,6 @@ export const TerminalPanel = forwardRef(function TerminalPanel(
     resetCommandInput();
     pendingConfirmationRef.current = null;
     setPendingConfirmation(null);
-    terminalModeRef.current = "unknown";
-    terminalStateVersionRef.current = 0;
-    serverTerminalModeRef.current = "unknown";
     if (socket && socket.readyState !== WebSocket.CLOSED) {
       try {
         socket.close(code, reason);

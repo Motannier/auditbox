@@ -44,7 +44,7 @@ def redact(value):
             str(k): (
                 "[已隐藏]"
                 if re.fullmatch(
-                    r"(?i)(?:.*[_-])?(password|passwd|passphrase|secret|token|api[_-]?key|authorization|otp|verification_code)|密码|验证码|口令",
+                    r"(?i)(password|passwd|passphrase|secret|token|api[_-]?key|authorization)",
                     str(k),
                 )
                 else redact(v)
