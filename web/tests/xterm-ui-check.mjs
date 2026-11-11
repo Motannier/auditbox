@@ -577,6 +577,7 @@ try {
       routedSocketCloseCount += 1;
     });
     ws.send(JSON.stringify({ type: "handshake", status: "ok", session_id: "mock-proxy" }));
+    ws.send("\r\n<H3C> ");
     ws.onMessage((message) => {
       let text = String(message);
       if (text.startsWith('{"type":"terminal_input"')) {
