@@ -3175,6 +3175,100 @@ body.resizing-operations .workspace {
   font-size: 12px;
 }
 
+.session-expired-backdrop {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10, 40, 42, 0.5);
+}
+
+.session-expired-dialog {
+  width: 488px;
+  max-width: 100%;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 40px 38px;
+  border: 1px solid #e0eeeb;
+  border-radius: 12px;
+  color: #123331;
+  background: #ffffff;
+  box-shadow: 0 16px 48px rgba(9, 45, 44, 0.16);
+  text-align: center;
+}
+
+.session-expired-icon {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #c57b0d;
+  background: #fff5e5;
+}
+
+.session-expired-clock {
+  position: absolute;
+  right: 23px;
+  bottom: 24px;
+  border-radius: 50%;
+  background: #fff5e5;
+}
+
+.session-expired-dialog h2 {
+  margin: 24px 0 0;
+  color: #123331;
+  font-size: 28px;
+  font-weight: 750;
+  line-height: 36px;
+}
+
+.session-expired-dialog p {
+  margin: 14px 0 0;
+  color: #58716f;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.session-expired-login {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 32px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid #007d77;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #007d77;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.session-expired-login:hover { background: #006c67; }
+.session-expired-login:focus-visible { outline: 2px solid #319f99; outline-offset: 3px; }
+
+@media (max-width: 480px), (max-height: 480px) {
+  .session-expired-dialog { padding: 28px 24px; }
+  .session-expired-icon { width: 72px; height: 72px; }
+  .session-expired-clock { right: 11px; bottom: 12px; }
+  .session-expired-dialog h2 { margin-top: 18px; font-size: 24px; line-height: 32px; }
+  .session-expired-dialog p { margin-top: 10px; font-size: 15px; }
+  .session-expired-login { margin-top: 24px; }
+}
+
 .assistant-history-menu button.delete {
   width: 26px;
   min-height: 28px;

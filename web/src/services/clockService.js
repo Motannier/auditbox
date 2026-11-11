@@ -1,4 +1,4 @@
-import { readAuthSession, writeAuthSession } from "../lib/authStorage.js";
+import { notifyAuthExpired, readAuthSession, writeAuthSession } from "../lib/authStorage.js";
 
 let inFlight = null;
 let lastToken = "";
@@ -26,6 +26,12 @@ export async function synchronizeComputerClock(baseUrl = "", force = false) {
         body: JSON.stringify({ client_time_ms: Date.now() }),
         signal: controller.signal,
       });
+      if (response.status === 401) {
+        notifyAuthExpired(auth.token);
+        lastToken = auth.token;
+        nextAttempt = performance.now() + 5000;
+        return;
+      }
       const result = await response.json();
       if (!response.ok) throw new Error(result?.detail || "电脑时间同步失败");
       // A response arriving after logout/account switch must not restore auth.
