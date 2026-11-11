@@ -5,6 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { checkClientDeviceFlow } from "./client-device-ui-check.mjs";
+import { checkConsolePorts } from "./console-ports-check.mjs";
 import { DEFAULT_PRODUCT_NAME } from "../src/constants/branding.js";
 import { buildOfflineGuide, createInitialGuideForm, guideScenarios } from "../src/lib/guide/index.js";
 
@@ -2067,6 +2068,7 @@ try {
   if (pageErrors.length) throw new Error(`Page errors during recovery: ${pageErrors.join("\n")}`);
 
   await checkClientDeviceFlow(browser, url);
+  await checkConsolePorts(browser, url);
 } finally {
   if (browser) await browser.close();
   server.kill();
